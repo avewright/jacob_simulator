@@ -1,0 +1,23 @@
+Lee Perry-Smith 3D Head Scan
+Creative Commons Attribution 3.0
+Infinite Realities / Lee Perry-Smith
+https://www.ir-ltd.net/
+
+Business Man — civilian suit
+Quaternius via Poly Pizza — CC0 (public domain)
+https://poly.pizza/m/JFrLIKqvCH
+https://quaternius.com — low-poly CC0 characters
+Animations Idle/Walk/Run from the same model (CharacterArmature|Idle etc.). Face from assets/image.png (chroma-keyed).
+
+Soldier humanoid + Idle/Walk/Run (legacy fallback)
+Mixamo / Adobe character used via the three.js example pack.
+
+Truck Town vehicle SFX (engine, impact)
+Godot official demo — MIT
+https://github.com/godotengine/godot-demo-projects/tree/master/3d/truck_town
+
+MixaBridge (editor plugin)
+MIT — Uzair Mughal
+https://github.com/uzairdeveloper223/mixabridge
+
+See reference/NOTES.md for how we use these.

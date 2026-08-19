@@ -1,0 +1,113 @@
+; Engine configuration file.
+; Godot 4.7 — Forward+ on Metal (Apple Silicon / M5 Pro)
+config_version=5
+
+[application]
+
+config/name="Super Strikers"
+config/description="Arcade soccer with punch, kick, and body slam."
+run/main_scene="res://scenes/soccer/soccer_title.tscn"
+config/features=PackedStringArray("4.7", "Forward Plus")
+config/icon="res://icon.svg"
+
+[autoload]
+
+GameState="*res://scripts/game_state.gd"
+
+[editor_plugins]
+
+enabled=PackedStringArray("res://addons/mixabridge/plugin.cfg")
+
+[display]
+
+window/size/viewport_width=1280
+window/size/viewport_height=720
+window/size/mode=0
+window/stretch/mode="canvas_items"
+window/stretch/aspect="expand"
+window/dpi/allow_hidpi=true
+window/vsync/vsync_mode=1
+
+[input]
+
+move_forward={
+"deadzone": 0.5,
+"events": []
+}
+move_back={
+"deadzone": 0.5,
+"events": []
+}
+move_left={
+"deadzone": 0.5,
+"events": []
+}
+move_right={
+"deadzone": 0.5,
+"events": []
+}
+sprint={
+"deadzone": 0.5,
+"events": []
+}
+jump={
+"deadzone": 0.5,
+"events": []
+}
+interact={
+"deadzone": 0.5,
+"events": []
+}
+inspect={
+"deadzone": 0.5,
+"events": []
+}
+toggle_wireframe={
+"deadzone": 0.5,
+"events": []
+}
+pause={
+"deadzone": 0.5,
+"events": []
+}
+reset_car={
+"deadzone": 0.5,
+"events": []
+}
+kick={
+"deadzone": 0.5,
+"events": []
+}
+punch={
+"deadzone": 0.5,
+"events": []
+}
+slam={
+"deadzone": 0.5,
+"events": []
+}
+
+[layer_names]
+
+3d_physics/layer_1="world"
+3d_physics/layer_2="player"
+3d_physics/layer_3="vehicle"
+3d_physics/layer_4="pickup"
+3d_physics/layer_5="ball"
+
+[physics]
+
+3d/physics_engine="Jolt Physics"
+common/physics_interpolation=true
+3d/physics_interpolation=true
+
+[rendering]
+
+renderer/rendering_method="forward_plus"
+rendering_device/driver.darwin="metal"
+lights_and_shadows/directional_shadow/size=4096
+lights_and_shadows/directional_shadow/soft_shadow_filter_quality=3
+anti_aliasing/quality/msaa_3d=2
+anti_aliasing/quality/screen_space_aa=1
+occlusion_culling/use_occlusion_culling=true
+environment/defaults/default_clear_color=Color(0.62, 0.75, 0.91, 1)

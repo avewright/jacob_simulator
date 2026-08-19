@@ -1,0 +1,83 @@
+[gd_scene load_steps=11 format=3]
+
+[ext_resource type="Script" path="res://scripts/main.gd" id="1_main"]
+[ext_resource type="Script" path="res://scripts/world_builder.gd" id="2_world"]
+[ext_resource type="Script" path="res://scripts/mission_system.gd" id="3_missions"]
+[ext_resource type="Script" path="res://scripts/traffic.gd" id="4_traffic"]
+[ext_resource type="PackedScene" path="res://scenes/player/jacob.tscn" id="5_jacob"]
+[ext_resource type="PackedScene" path="res://scenes/vehicles/camry.tscn" id="6_camry"]
+[ext_resource type="Script" path="res://scripts/camera_rig.gd" id="7_cam"]
+[ext_resource type="PackedScene" path="res://scenes/ui/hud.tscn" id="8_hud"]
+
+[sub_resource type="ProceduralSkyMaterial" id="ProceduralSkyMaterial_1"]
+sky_top_color = Color(0.28, 0.52, 0.86, 1)
+sky_horizon_color = Color(0.78, 0.84, 0.9, 1)
+ground_bottom_color = Color(0.12, 0.2, 0.12, 1)
+ground_horizon_color = Color(0.5, 0.55, 0.42, 1)
+
+[sub_resource type="Sky" id="Sky_1"]
+sky_material = SubResource("ProceduralSkyMaterial_1")
+
+[sub_resource type="Environment" id="Environment_1"]
+background_mode = 2
+sky = SubResource("Sky_1")
+tonemap_mode = 3
+tonemap_exposure = 1.05
+ssao_enabled = true
+glow_enabled = true
+glow_intensity = 0.35
+fog_enabled = true
+fog_light_color = Color(0.7, 0.78, 0.88, 1)
+fog_density = 0.0009
+fog_aerial_perspective = 0.4
+sdfgi_enabled = true
+sdfgi_use_occlusion = true
+adjustment_enabled = true
+adjustment_saturation = 1.08
+
+[node name="Main" type="Node3D"]
+script = ExtResource("1_main")
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+environment = SubResource("Environment_1")
+
+[node name="Sun" type="DirectionalLight3D" parent="."]
+transform = Transform3D(0.8, -0.45, 0.4, 0, 0.66, 0.75, -0.6, -0.6, 0.53, 40, 80, 30)
+light_energy = 1.35
+light_color = Color(1, 0.97, 0.9, 1)
+shadow_enabled = true
+directional_shadow_max_distance = 220.0
+
+[node name="Fill" type="DirectionalLight3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 0.82, 0.57, 0, -0.57, 0.82, -40, 40, -20)
+light_energy = 0.28
+light_color = Color(0.75, 0.82, 1, 1)
+shadow_enabled = false
+
+[node name="WorldBuilder" type="Node3D" parent="."]
+script = ExtResource("2_world")
+
+[node name="MissionSystem" type="Node3D" parent="."]
+script = ExtResource("3_missions")
+
+[node name="Traffic" type="Node3D" parent="."]
+script = ExtResource("4_traffic")
+
+[node name="Jacob" parent="." instance=ExtResource("5_jacob")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 16, 0, 3.2)
+
+[node name="Camry" parent="." instance=ExtResource("6_camry")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 16, 0, 0)
+
+[node name="CameraRig" type="Node3D" parent="."]
+script = ExtResource("7_cam")
+
+[node name="SpringArm3D" type="SpringArm3D" parent="CameraRig"]
+spring_length = 7.6
+collision_mask = 0
+
+[node name="Camera3D" type="Camera3D" parent="CameraRig/SpringArm3D"]
+fov = 58.0
+far = 700.0
+
+[node name="HUD" parent="." instance=ExtResource("8_hud")]
