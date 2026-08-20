@@ -35,7 +35,12 @@ func _process(delta: float) -> void:
 			_notice.visible = false
 	if GameState.is_paused:
 		return
-	_state.text = "IN CAMRY" if GameState.in_car else "ON FOOT"
+	if GameState.in_car:
+		_state.text = "IN CAMRY"
+	elif GameState.has_clothes:
+		_state.text = "ON FOOT"
+	else:
+		_state.text = "IN UNDERWEAR"
 	_speed.text = ("%d mph" % int(round(GameState.speed_mph))) if GameState.in_car else ""
 	_minimap.queue_redraw()
 
@@ -121,7 +126,7 @@ func _build() -> void:
 	_prompt.add_theme_color_override("font_color", GOLD)
 	add_child(_prompt)
 
-	help.text = "WASD move / drive\nShift sprint  Space jump / handbrake\nE enter-exit Camry  Walk into WORK\nR reset car  Esc pause"
+	help.text = "WASD move / drive\nShift sprint  Space jump / handbrake\nE Camry / clothes / work   R reset car   Esc pause"
 	help.add_theme_font_size_override("font_size", 13)
 	help.add_theme_color_override("font_color", Color(0.85, 0.85, 0.85, 0.85))
 	add_child(help)

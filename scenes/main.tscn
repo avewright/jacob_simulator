@@ -1,4 +1,4 @@
-[gd_scene load_steps=11 format=3]
+[gd_scene load_steps=12 format=3]
 
 [ext_resource type="Script" path="res://scripts/main.gd" id="1_main"]
 [ext_resource type="Script" path="res://scripts/world_builder.gd" id="2_world"]
@@ -8,6 +8,7 @@
 [ext_resource type="PackedScene" path="res://scenes/vehicles/camry.tscn" id="6_camry"]
 [ext_resource type="Script" path="res://scripts/camera_rig.gd" id="7_cam"]
 [ext_resource type="PackedScene" path="res://scenes/ui/hud.tscn" id="8_hud"]
+[ext_resource type="Script" path="res://scripts/clothing_shop.gd" id="9_shop"]
 
 [sub_resource type="ProceduralSkyMaterial" id="ProceduralSkyMaterial_1"]
 sky_top_color = Color(0.28, 0.52, 0.86, 1)
@@ -62,6 +63,10 @@ script = ExtResource("3_missions")
 
 [node name="Traffic" type="Node3D" parent="."]
 script = ExtResource("4_traffic")
+
+[node name="ClothingShop" type="Node3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 26, 0, 10)
+script = ExtResource("9_shop")
 
 [node name="Jacob" parent="." instance=ExtResource("5_jacob")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 16, 0, 3.2)

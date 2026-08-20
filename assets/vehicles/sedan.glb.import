@@ -3,13 +3,13 @@
 importer="scene"
 importer_version=1
 type="PackedScene"
-uid="uid://bfihvclnrerob"
-path="res://.godot/imported/Jacob.glb-4d72ff20e4fcf15a4a1f1e29237ccd52.scn"
+uid="uid://dpo73xllew81i"
+path="res://.godot/imported/sedan.glb-6a93f3560b4bc81d4a802cfe04a1ef17.scn"
 
 [deps]
 
-source_file="res://assets/characters/Jacob.glb"
-dest_files=["res://.godot/imported/Jacob.glb-4d72ff20e4fcf15a4a1f1e29237ccd52.scn"]
+source_file="res://assets/vehicles/sedan.glb"
+dest_files=["res://.godot/imported/sedan.glb-6a93f3560b4bc81d4a802cfe04a1ef17.scn"]
 
 [params]
 

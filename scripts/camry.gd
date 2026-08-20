@@ -10,6 +10,7 @@ const ENTER_DIST := 12.0
 const EXIT_SPEED := 2.4
 const ENGINE_SFX := preload("res://assets/audio/truck_town/engine.wav")
 const IMPACT_SFX := preload("res://assets/audio/truck_town/impact_1.wav")
+const SEDAN_PATH := "res://assets/vehicles/sedan.glb"
 
 var _speed: float = 0.0
 var _yaw: float = 0.0
@@ -18,6 +19,7 @@ var _gravity: float = ProjectSettings.get_setting("physics/3d/default_gravity")
 var _engine: AudioStreamPlayer3D
 var _impact: AudioStreamPlayer3D
 var _enter_frame: int = -100
+var _sedan_instance: Node3D = null
 
 
 func _ready() -> void:
@@ -267,23 +269,61 @@ func _build() -> void:
 	tag.outline_size = 8
 	add_child(tag)
 
-	_box(Vector3(1.92, 0.52, 4.35), Vector3(0, 0.58, 0.05), paint)
-	_box(Vector3(1.86, 0.18, 0.62), Vector3(0, 0.44, 1.95), paint)
-	_box(Vector3(1.86, 0.22, 0.55), Vector3(0, 0.48, -1.95), paint)
-	_box(Vector3(1.62, 0.48, 1.85), Vector3(0, 1.02, -0.18), paint)
-	var windshield := _box(Vector3(1.52, 0.04, 1.05), Vector3(0, 1.08, 0.72), glass)
+	# Try to instance Quaternius sedan.glb (170K) when it exists.
+	var use_sedan := false
+	if FileAccess.file_exists(SEDAN_PATH) or ResourceLoader.exists(SEDAN_PATH):
+		var res = null
+		# load() is runtime-safe; if import missing it returns null without crashing.
+		if ResourceLoader.exists(SEDAN_PATH):
+			res = load(SEDAN_PATH)
+		if res is PackedScene:
+			var inst = (res as PackedScene).instantiate()
+			if inst is Node3D:
+				var sedan := inst as Node3D
+				sedan.name = "Sedan"
+				# Quaternius sedan NormalCar1: full AABB X 1.807, Y 1.177, Z 4.221 (front +Z, Y up), min_y 0.006.
+				# Keep near-original length ~4.35. Uniform scale preserves proportions.
+				var base_len := 4.220717430114746
+				var target_len := 4.35
+				var s_len := target_len / base_len
+				sedan.scale = Vector3(s_len, s_len, s_len)
+				# Y up, front +Z matches CharacterBody forward (+Z via sin/cos). No Y rotation needed.
+				sedan.rotation_degrees.y = 0.0
+				# Lift so wheels sit just above ground: base min_y 0.006 * scale.
+				var base_min_y := 0.006029833573848009
+				sedan.position.y = 0.02 - base_min_y * s_len
+				sedan.position.x = 0.0
+				sedan.position.z = 0.02
+				add_child(sedan)
+				_sedan_instance = sedan
+				_set_shadows_recursive(sedan, true)
+				use_sedan = true
+			else:
+				if inst:
+					inst.queue_free()
+
+	# Procedural fallback — always built, hidden when sedan is active.
+	var proc_root := Node3D.new()
+	proc_root.name = "Procedural"
+	add_child(proc_root)
+
+	_add_box(proc_root, Vector3(1.92, 0.52, 4.35), Vector3(0, 0.58, 0.05), paint)
+	_add_box(proc_root, Vector3(1.86, 0.18, 0.62), Vector3(0, 0.44, 1.95), paint)
+	_add_box(proc_root, Vector3(1.86, 0.22, 0.55), Vector3(0, 0.48, -1.95), paint)
+	_add_box(proc_root, Vector3(1.62, 0.48, 1.85), Vector3(0, 1.02, -0.18), paint)
+	var windshield := _add_box(proc_root, Vector3(1.52, 0.04, 1.05), Vector3(0, 1.08, 0.72), glass)
 	windshield.rotation_degrees.x = 28.0
-	_box(Vector3(1.52, 0.04, 0.72), Vector3(0, 1.06, -0.95), glass)
-	_box(Vector3(0.04, 0.36, 1.2), Vector3(-0.80, 0.98, -0.12), glass)
-	_box(Vector3(0.04, 0.36, 1.2), Vector3(0.80, 0.98, -0.12), glass)
-	_box(Vector3(0.24, 0.14, 0.14), Vector3(-0.68, 0.58, 2.22), light)
-	_box(Vector3(0.24, 0.14, 0.14), Vector3(0.68, 0.58, 2.22), light)
-	_box(Vector3(0.32, 0.12, 0.08), Vector3(-0.68, 0.58, -2.20), tail)
-	_box(Vector3(0.32, 0.12, 0.08), Vector3(0.68, 0.58, -2.20), tail)
-	_box(Vector3(1.94, 0.06, 0.10), Vector3(0, 0.36, 2.24), chrome)
-	_box(Vector3(1.94, 0.06, 0.10), Vector3(0, 0.36, -2.22), chrome)
-	_box(Vector3(1.70, 0.05, 1.6), Vector3(0, 0.34, 0.15), dark)
-	var shadow := _box(Vector3(2.1, 0.02, 4.5), Vector3(0, 0.03, 0), _mat(Color(0, 0, 0, 0.35), 1.0))
+	_add_box(proc_root, Vector3(1.52, 0.04, 0.72), Vector3(0, 1.06, -0.95), glass)
+	_add_box(proc_root, Vector3(0.04, 0.36, 1.2), Vector3(-0.80, 0.98, -0.12), glass)
+	_add_box(proc_root, Vector3(0.04, 0.36, 1.2), Vector3(0.80, 0.98, -0.12), glass)
+	_add_box(proc_root, Vector3(0.24, 0.14, 0.14), Vector3(-0.68, 0.58, 2.22), light)
+	_add_box(proc_root, Vector3(0.24, 0.14, 0.14), Vector3(0.68, 0.58, 2.22), light)
+	_add_box(proc_root, Vector3(0.32, 0.12, 0.08), Vector3(-0.68, 0.58, -2.20), tail)
+	_add_box(proc_root, Vector3(0.32, 0.12, 0.08), Vector3(0.68, 0.58, -2.20), tail)
+	_add_box(proc_root, Vector3(1.94, 0.06, 0.10), Vector3(0, 0.36, 2.24), chrome)
+	_add_box(proc_root, Vector3(1.94, 0.06, 0.10), Vector3(0, 0.36, -2.22), chrome)
+	_add_box(proc_root, Vector3(1.70, 0.05, 1.6), Vector3(0, 0.34, 0.15), dark)
+	var shadow := _add_box(proc_root, Vector3(2.1, 0.02, 4.5), Vector3(0, 0.03, 0), _mat(Color(0, 0, 0, 0.35), 1.0))
 	shadow.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 
 	for p in [Vector3(-0.84, 0.30, 1.32), Vector3(0.84, 0.30, 1.32), Vector3(-0.84, 0.30, -1.32), Vector3(0.84, 0.30, -1.32)]:
@@ -296,7 +336,7 @@ func _build() -> void:
 		wheel.material_override = rubber
 		wheel.rotation_degrees.z = 90
 		wheel.position = p
-		add_child(wheel)
+		proc_root.add_child(wheel)
 		var rim := MeshInstance3D.new()
 		var disc := CylinderMesh.new()
 		disc.top_radius = 0.2
@@ -306,7 +346,32 @@ func _build() -> void:
 		rim.material_override = chrome
 		rim.rotation_degrees.z = 90
 		rim.position = p
-		add_child(rim)
+		proc_root.add_child(rim)
+
+	if use_sedan:
+		proc_root.visible = false
+
+
+func _add_box(parent: Node3D, size: Vector3, pos: Vector3, mat: Material) -> MeshInstance3D:
+	var mi := MeshInstance3D.new()
+	var box := BoxMesh.new()
+	box.size = size
+	mi.mesh = box
+	mi.position = pos
+	mi.material_override = mat
+	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON
+	parent.add_child(mi)
+	return mi
+
+
+func _set_shadows_recursive(root: Node, enabled: bool) -> void:
+	var stack: Array[Node] = [root]
+	while stack.size() > 0:
+		var n: Node = stack.pop_back()
+		if n is GeometryInstance3D:
+			(n as GeometryInstance3D).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON if enabled else GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		for c in n.get_children():
+			stack.append(c)
 
 
 func _box(size: Vector3, pos: Vector3, mat: Material) -> MeshInstance3D:

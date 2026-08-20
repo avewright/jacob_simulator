@@ -1,0 +1,110 @@
+BusinessMan.glb — Forward / Head / Face Placement Report
+Generated via blender --background on macOS Darwin (Blender 5.2.0 LTS)
+
+1. ARMATURE ORIENTATION
+-----------------------
+- Raw glTF asset: FBX2glTF v0.9.7, Y-up.
+- Node hierarchy:
+  RootNode (identity, children: CharacterArmature + meshes)
+    CharacterArmature  T(0,0,0) R(-90deg X)[-0.707,0,0,0.707] S(100,100,100)
+      Root             T(0,-0.00072,0) R(+90deg X)[0.707,0,0,0.707] S(1)
+        Body/Hips/...  (see bone list below)
+- Combined CharacterArmature * Root rotation = identity (+90-90 cancel).
+  So raw glTF world is still Y-up, no net rotation.
+
+- Blender import converts Y-up -> Z-up:
+  matrix_world for CharacterArmature / Suit_* in Blender:
+    [100  0    0   0]
+    [0  ~0  100   0]   (Blender Y = glTF Z)
+    [0 -100 ~0   0]   (Blender Z = glTF Y)
+  i.e.  Blender X=glTF X, Blender Y=glTF Z (forward), Blender Z=glTF Y (up)
+  Scale 100 remains (cm->m without flatten).
+
+- Godot import keeps Y-up (no Blender conversion):
+  Godot X = glTF X
+  Godot Y = glTF Y (up) = Blender Z
+  Godot Z = glTF Z (forward) = Blender Y
+  So Blender +Y == Godot +Z == forward.
+
+2. MODEL FORWARD VERIFIED +Z (Godot) / +Y (Blender)
+----------------------------------------------------
+Method: evaluated Suit_Head mesh world vertices + normals.
+
+Blender world:
+  Suit_Head AABB  min (-0.112, -0.255, 1.452) max (0.114, 0.004, 1.811)
+               size (0.226, 0.259, 0.359) verts 4902
+  Avg normal of face verts (normal.y>0.5):  Y≈+0.8 dominant, X/Z near 0
+  Avg face position Blender (0.008, -0.124, 1.676) -> Godot Z = -0.124
+  Avg back  position Blender (0.006, -0.165, 1.678) -> Godot Z = -0.165
+  Face Z > Back Z by +0.041  => face is +Z relative to back.
+
+  Extremes in Godot coords:
+    Godot X -0.112:0.114
+    Godot Y(up) 1.452:1.811  (Blender Z)
+    Godot Z(fwd)-0.255:0.004
+    max Godot Z = 0.004  vert (-0.006, 0.004, 1.67) normal (-0.651,0.73,-0.21) -> nose/forehead forward
+    min Godot Z = -0.255 vert (-0.016,-0.255,1.725) normal (0.103,-0.964,-0.246) -> back of head
+  Face lies toward +Z, back toward -Z.  Therefore model faces +Z forward.
+
+  Raw glTF confirms: first head prim normals (0.168,-0.169,0.971) Z~0.97 forward, verts Z~0.017 positive.
+
+  Player.gd uses:  target_yaw = atan2(wish.x, wish.z) and visuals.rotation.y = lerp(...).
+  That matches Godot convention where +Z is south-forward, so movement aligns.
+
+  CONCLUSION: PASS - BusinessMan faces +Z forward (Blender +Y). No re-export rotation needed.
+
+3. HEAD BONE
+------------
+- Armature data "Armature" has 63 bones (see dump below).
+- Head bone: head_local (-0.0, -0.0159, -0.0004) tail (-0.0, -0.016, -0.0004) parent Neck
+  Pose head world (with scale 100) (0.004, -0.106, 1.543) tail (0.004,-0.107,1.551)
+  Converted Godot world:  Y=1.543 (up), Z=-0.106 (forward)
+  Vector head->tail Blender (-0, -0.001, 0.008) -> Godot Y 0.008 up, small forward.
+  Parent chain: Chest->Neck->Head->Head_end.  Correct.
+
+- Bone list (excerpt): Root, Body, Hips, Abdomen, Torso, Chest, Neck, Head,
+  Shoulder.L/R, UpperArm, LowerArm, Wrist, fingers, UpperLeg, LowerLeg, Foot, PT, etc.
+  Head exists and is correctly parented.
+
+  CONCLUSION: PASS - Head bone present and correctly oriented.
+
+4. JACOBLOOK FACE PLACEMENT
+---------------------------
+Previous (bug): placed at -Z (back of head).
+  jacob_look.gd:  world_pos.z = position.z -0.012 = min_Z -0.012 = -0.267 (back)
+  build_jacob.py: cy = mn.y -0.035 = -0.290 (Blender -Y = Godot -Z back)
+
+Fixed (this report):
+  jacob_look.gd:  world_pos.z = position.z + size.z +0.012 = max_Z +0.012 = 0.016 (front)
+                  (change applied: world_aabb.position.z + world_aabb.size.z + 0.012)
+  build_jacob.py: cy = mx.y +0.035 = 0.039 (Blender +Y = Godot +Z front)
+
+  Both now place the quad/card at +Z beyond the nose (0.012-0.035 offset), with
+  look_at +Z (CULL_DISABLED shows both sides).  Verified against AABB above.
+
+  build_jacob.py also places cx = (mn.x+mx.x)/2, cz = mn.z + (mx.z-mn.z)*0.54
+  (vertical centre), so card is centred on face height.
+
+  CONCLUSION: FIXED - face now at +Z front.
+
+5. ARMATURE SCALE NOTE
+----------------------
+- CharacterArmature scale (100,100,100) in BusinessMan.glb (cm units).
+  build_jacob.py defines flatten_scale() but main() did not call it; exported
+  Jacob.glb will retain scale 100. Godot import uses apply_root_scale=true but
+  root_scale=1.0 so visual size depends on import. Not changed in this verification.
+  Not required for forward check; flagged for future.
+
+6. REPRO / VERIFICATION COMMANDS
+--------------------------------
+  blender --background --python /tmp/inspect7.py   (forward proof)
+  blender --background --python tools/build_jacob.py  (regenerates Jacob.glb with fixed card)
+  Check: head exists at ~Y1.54, +Z forward max 0.004, card at 0.016-0.039.
+
+7. FILES
+--------
+- BusinessMan.glb unchanged (not re-downloaded) 1.5M
+- Jacob.glb will be re-exported with fixed card (export_yup=True)
+- Tools: tools/build_jacob.py (cy fixed), scripts/jacob_look.gd (world_pos fixed)
+- Previews: tools/jacob/preview.png, head_preview.png (EEVEE)
+

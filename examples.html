@@ -1,0 +1,173 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Jacob Simulator — Fix Examples</title>
+<style>
+  *{box-sizing:border-box} body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial;background:#0f1115;color:#e8e8e8}
+  header{padding:24px 20px;border-bottom:1px solid #222;position:sticky;top:0;background:#0f1115}
+  h1{margin:0;font-size:22px} .sub{color:#9aa0a6;font-size:13px;margin-top:6px}
+  main{max-width:980px;margin:0 auto;padding:20px;display:grid;gap:20px}
+  .card{background:#151821;border:1px solid #222;border-radius:12px;padding:18px}
+  .card h2{margin:0 0 8px;font-size:16px} .card p{margin:0;color:#b8bcc2;line-height:1.5;font-size:14px}
+  .row{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px}
+  @media(max-width:700px){.row{grid-template-columns:1fr}}
+  .demo{height:180px;background:#0b0d12;border:1px solid #222;border-radius:10px;display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden}
+  .pill{display:inline-block;padding:4px 8px;border-radius:999px;background:#1e232e;border:1px solid #2a3242;font-size:11px;color:#aeb6c5;margin-right:6px}
+  canvas{width:100%;height:100%;display:block}
+  code{background:#1a1e28;padding:2px 6px;border-radius:6px;font-size:12px}
+  .before{filter:grayscale(1) opacity:0.9} .after{border-color:#2e7d32}
+  .label{position:absolute;top:8px;left:8px;font-size:11px;padding:3px 7px;border-radius:999px;background:rgba(0,0,0,0.6);border:1px solid #333}
+  .ok{color:#7ddf90} .bad{color:#ff8a80}
+  button{background:#2a3242;color:#e8e8e8;border:1px solid #3a4458;padding:8px 12px;border-radius:8px;cursor:pointer;font-size:13px}
+  button:active{transform:translateY(1px)}
+</style>
+</head>
+<body>
+<header>
+  <h1>Jacob Simulator — 3 fixes, live examples</h1>
+  <div class="sub">Godot 4.7.1 · <code>godot --path /Users/avewright/Projects/jacob_simulator res://scenes/main.tscn</code> · BusinessMan CC0 (Quaternius)</div>
+</header>
+<main>
+
+  <section class="card">
+    <h2>1) Civilian, not Halo <span class="pill">jacob_look.gd</span> <span class="pill">BusinessMan.glb</span></h2>
+    <p><span class="bad">Before:</span> <code>Soldier.glb</code> <code>vanguard_Mesh</code> (visor hidden, navy tint) — still Halo armor. <span class="ok">After:</span> <code>BusinessMan.glb</code> <code>CharacterArmature|Idle/Walk/Run</code> bones <code>Head</code>/<code>Hips</code>, suit meshes <code>Suit_Body</code>/<code>Suit_Head</code> tinted, face quad from <code>assets/image.png</code> on front of head.</p>
+    <div class="row">
+      <div class="demo before"><span class="label">Before — Halo</span><canvas id="c1a" width="400" height="180"></canvas></div>
+      <div class="demo after"><span class="label">After — BusinessMan</span><canvas id="c1b" width="400" height="180"></canvas></div>
+    </div>
+    <p style="margin-top:10px;font-size:12px;color:#9aa0a6">Left: boxy helmet/visor silhouette. Right: suit + head with photo quad. Both canvases are 2D stand-ins — full GLB viewer is in Godot.</p>
+  </section>
+
+  <section class="card">
+    <h2>2) W walks away from camera, mesh follows <span class="pill">player.gd</span> <span class="pill">camera_rig.gd</span></h2>
+    <p>Wish: <code>look = -camera.basis.z; look.y=0; right=look.cross(UP); wish=look*-input.y + right*input.x</code>. BusinessMan forward is <code>+Z</code>, so yaw is <code>atan2(wish.x,wish.z)</code> (<span class="bad">dropped `+PI`</span> was Mixamo <code>-Z</code>). Camera SpringArm <code>collision_mask 0</code> keeps it behind Jacob.</p>
+    <div class="demo" id="moveDemo"><span class="label">Hold W — green is wish/velocity, gray is camera look</span><canvas id="c2" width="900" height="180"></canvas></div>
+    <div style="margin-top:10px;display:flex;gap:8px;align-items:center"><button id="pressW">Hold W (2s)</button><span id="readout" style="font-family:monospace;font-size:12px;color:#aeb6c5"></span></div>
+  </section>
+
+  <section class="card">
+    <h2>3) E to drive — never “walk closer” <span class="pill">camry.gd</span></h2>
+    <p><code>in_enter_range</code> 2-D <code>Vector2(x,z)</code> (ignore <code>Y</code> fall), <code>try_enter</code> snaps beside Jacob if <code>d2≤20</code> else far, <code>_enter_frame</code> gates same-frame exit. Spawn Jacob <code>(16,0,3.2)</code> car <code>(16,0,0)</code> <code>d2=3.2</code>.</p>
+    <div class="demo" id="carDemo"><span class="label">Press E — hides Jacob, camera follows Camry</span><canvas id="c3" width="900" height="180"></canvas></div>
+    <div style="margin-top:10px;display:flex;gap:8px"><button id="pressE">Press E</button><button id="resetE">Reset</button><span id="carReadout" style="font-family:monospace;font-size:12px;color:#aeb6c5"></span></div>
+  </section>
+
+  <section class="card" style="border-style:dashed">
+    <h2>How to run for real</h2>
+    <p><code>godot --path /Users/avewright/Projects/jacob_simulator res://scenes/main.tscn</code> — use <b>NEW GAME</b> (Continue loads stale <code>user://save.json</code> / <code>GameState.in_car</code>). Or headless smoke: <code>godot --headless --quit-after 8 res://scenes/main.tscn</code> → no parse errors. Full model at <code>assets/characters/BusinessMan.glb</code>.</p>
+  </section>
+
+</main>
+<script>
+// 1) before/after silhouettes
+function drawHalo(ctx){
+  ctx.clearRect(0,0,400,180); ctx.fillStyle="#0b0d12"; ctx.fillRect(0,0,400,180);
+  ctx.fillStyle="#3a4458"; ctx.fillRect(170,60,60,70); // torso armor
+  ctx.fillStyle="#7a869a"; ctx.beginPath(); ctx.arc(200,45,22,0,Math.PI*2); ctx.fill(); // helmet
+  ctx.fillStyle="#0ff"; ctx.fillRect(188,38,24,6); // visor
+  ctx.fillStyle="#6b7280"; ctx.fillRect(150,70,12,40); ctx.fillRect(238,70,12,40);
+}
+function drawCivilian(ctx){
+  ctx.clearRect(0,0,400,180); ctx.fillStyle="#0b0d12"; ctx.fillRect(0,0,400,180);
+  // suit body
+  ctx.fillStyle="#1d2a44"; ctx.fillRect(172,62,56,68);
+  ctx.fillStyle="#e8e8e8"; ctx.fillRect(192,62,16,28); // shirt
+  ctx.fillStyle="#c9a86a"; ctx.fillRect(195,70,10,18); // tie
+  // head + face quad
+  ctx.fillStyle="#e8c9a0"; ctx.beginPath(); ctx.arc(200,42,18,0,Math.PI*2); ctx.fill();
+  ctx.fillStyle="#fff"; ctx.fillRect(186,32,28,22); ctx.fillStyle="#333"; ctx.font="8px monospace"; ctx.fillText("photo",193,46);
+}
+drawHalo(document.getElementById('c1a').getContext('2d'));
+drawCivilian(document.getElementById('c1b').getContext('2d'));
+
+// 2) movement demo — top-down
+(function(){
+  const c=document.getElementById('c2'), ctx=c.getContext('2d');
+  let t=0, holding=false, raf=0; const cam={x:200,y:140, yaw:0}, j={x:200,y:80, yaw:0, vx:0, vz:0};
+  function frame(){
+    t+=0.016;
+    const look={x:Math.sin(cam.yaw), y:Math.cos(cam.yaw)}; // forward is +Z in top-down (down)
+    // wish away from camera = look
+    const wish = holding ? {x:look.x, y:look.y} : {x:0,y:0};
+    const speed = holding? 60:0;
+    j.vx = wish.x*speed*0.016*1.8; j.vz = wish.y*speed*0.016*1.8;
+    if(wish.x||wish.y) j.yaw = Math.atan2(wish.x,wish.y);
+    // animate cam orbit slowly
+    cam.yaw = Math.sin(t*0.2)*0.3;
+    ctx.clearRect(0,0,900,180);
+    // grid
+    ctx.strokeStyle="#1e2330"; ctx.lineWidth=1;
+    for(let x=0;x<900;x+=30){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,180);ctx.stroke();}
+    for(let y=0;y<180;y+=30){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(900,y);ctx.stroke();}
+    // camera
+    ctx.fillStyle="#7ddf90"; ctx.beginPath(); ctx.arc(cam.x,cam.y,7,0,Math.PI*2); ctx.fill();
+    ctx.strokeStyle="#7ddf90"; ctx.beginPath(); ctx.moveTo(cam.x,cam.y); ctx.lineTo(cam.x+look.x*38, cam.y+look.y*38); ctx.stroke();
+    ctx.fillStyle="#7ddf90"; ctx.font="10px monospace"; ctx.fillText("cam look", cam.x+10,cam.y-8);
+    // jacob
+    ctx.save(); ctx.translate(j.x,j.y); ctx.rotate(j.yaw);
+    ctx.fillStyle="#9ec1ff"; ctx.fillRect(-10,-14,20,28); // chest faces +Y (down)
+    ctx.fillStyle="#fff"; ctx.beginPath(); ctx.arc(0,-16,8,0,Math.PI*2); ctx.fill(); // head
+    ctx.fillStyle="#333"; ctx.fillRect(-2,-18,4,6); // nose = forward
+    ctx.restore();
+    // wish/vel arrow
+    if(holding){
+      ctx.strokeStyle="#ffd166"; ctx.lineWidth=2; ctx.beginPath(); ctx.moveTo(j.x,j.y); ctx.lineTo(j.x+wish.x*40,j.y+wish.y*40); ctx.stroke();
+      ctx.fillStyle="#ffd166"; ctx.font="10px monospace"; ctx.fillText("wish+vel", j.x+42,j.y+4);
+    }
+    document.getElementById('readout').textContent = `look=(${look.x.toFixed(2)},${look.y.toFixed(2)}) wish=(${wish.x.toFixed(2)},${wish.y.toFixed(2)}) yaw=${(j.yaw*180/Math.PI|0)}°`;
+    raf=requestAnimationFrame(frame);
+  }
+  frame();
+  document.getElementById('pressW').onclick=()=>{holding=true; setTimeout(()=>holding=false,2000);};
+})();
+
+// 3) car demo
+(function(){
+  const c=document.getElementById('c3'), ctx=c.getContext('2d');
+  let inCar=false, car={x:300,y:90}, jack={x:260,y:90}, enterFrame=-10, frame=0;
+  function draw(){
+    frame++;
+    ctx.clearRect(0,0,900,180);
+    // lot
+    ctx.fillStyle="#0b0d12"; ctx.fillRect(0,0,900,180);
+    ctx.strokeStyle="#2a3242"; ctx.strokeRect(120,40,560,100);
+    ctx.fillStyle="#1e232e"; ctx.font="10px monospace"; ctx.fillText("parking lot x 8–32, z -15–15", 130,55);
+    // car
+    ctx.fillStyle="#8a0f18"; ctx.fillRect(car.x-28,car.y-14,56,28);
+    ctx.fillStyle="#111"; ctx.fillRect(car.x-22,car.y-18,44,6);
+    ctx.fillStyle="#c8c8c8"; ctx.fillRect(car.x-10,car.y+8,20,4);
+    // jack
+    if(!inCar){
+      ctx.fillStyle="#9ec1ff"; ctx.fillRect(jack.x-8,jack.y-10,16,20);
+      ctx.fillStyle="#e8c9a0"; ctx.beginPath(); ctx.arc(jack.x,jack.y-14,7,0,Math.PI*2); ctx.fill();
+    } else {
+      ctx.fillStyle="#555"; ctx.font="11px monospace"; ctx.fillText("hidden", jack.x-14,jack.y);
+    }
+    // camera target label
+    ctx.fillStyle="#aeb6c5"; ctx.font="11px monospace";
+    ctx.fillText(inCar ? "camera → Camry" : "camera → Jacob", 600,30);
+    // distance
+    const d=Math.hypot(car.x-jack.x, car.y-jack.y)/14;
+    document.getElementById('carReadout').textContent = `d2=${d.toFixed(1)}m inCar=${inCar}  (E gated 2 frames)`;
+  }
+  draw();
+  document.getElementById('pressE').onclick=()=>{
+    if(!inCar){
+      // snap if far (>20m mock far = >120px)
+      const d2=Math.hypot(car.x-jack.x, car.y-jack.y);
+      if(d2>48){ car.x=jack.x+36; car.y=jack.y; }
+      inCar=true; enterFrame=frame;
+    } else {
+      if(frame-enterFrame<2) return;
+      inCar=false; jack.x=car.x+28;
+    }
+    draw();
+  };
+  document.getElementById('resetE').onclick=()=>{ inCar=false; car={x:300,y:90}; jack={x:260,y:90}; draw(); };
+})();
+</script>
+</body>
+</html>

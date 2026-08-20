@@ -11,4 +11,7 @@ func _ready() -> void:
 		var car := get_tree().get_first_node_in_group("camry")
 		if car and car.has_method("try_enter"):
 			car.try_enter()
-	GameState.notice.emit("You're next to the Camry. E to drive. Walk into WORK.")
+	if GameState.has_clothes:
+		GameState.notice.emit("You're next to the Camry. E to drive. Walk into WORK.")
+	else:
+		GameState.notice.emit("You woke up in your underwear. Buy clothes before work.")

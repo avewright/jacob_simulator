@@ -8,10 +8,12 @@ signal notice(text: String)
 signal paused_changed(value: bool)
 signal missions_changed
 signal prompt_changed(text: String)
+signal clothes_changed(value: bool)
 
 const SAVE_PATH := "user://save.json"
 const START_MONEY := 420
 const START_FUEL := 78.0
+const CLOTHES_COST := 80
 
 var money: int = START_MONEY:
 	set(value):
@@ -29,7 +31,13 @@ var in_car: bool = false:
 		in_car_changed.emit(in_car)
 
 var speed_mph: float = 0.0
-var objective: String = "Get in the Camry (E) or walk into work.":
+var has_clothes: bool = false:
+	set(value):
+		if has_clothes == value:
+			return
+		has_clothes = value
+		clothes_changed.emit(has_clothes)
+var objective: String = "You're in your underwear. Buy clothes, then go to work.":
 	set(value):
 		objective = value
 		objective_changed.emit(objective)
@@ -97,7 +105,8 @@ func reset_new_game() -> void:
 	saved_car = Vector3(16.0, 0.0, 0.0)
 	saved_car_yaw = 0.0
 	prompt = ""
-	objective = "Get in the Camry (E) or walk into work."
+	has_clothes = false
+	objective = "You're in your underwear. Buy clothes, then go to work."
 	missions_changed.emit()
 
 
@@ -123,6 +132,19 @@ func spend_money(cost: int) -> bool:
 	if money < cost:
 		return false
 	money = money - cost
+	return true
+
+
+func buy_clothes() -> bool:
+	if has_clothes:
+		notice.emit("You already have clothes.")
+		return false
+	if not spend_money(CLOTHES_COST):
+		notice.emit("Need $%d for clothes." % CLOTHES_COST)
+		return false
+	has_clothes = true
+	mark_mission("clothes")
+	notice.emit("Dressed. HR will let you clock in.")
 	return true
 
 
@@ -154,6 +176,7 @@ func save_game() -> void:
 		"car_yaw": saved_car_yaw,
 		"in_car": in_car,
 		"objective": objective,
+		"has_clothes": has_clothes,
 	}
 	var file := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
 	if file == null:
@@ -182,6 +205,7 @@ func load_game() -> bool:
 	saved_car_yaw = float(data.get("car_yaw", PI))
 	in_car = bool(data.get("in_car", false))
 	objective = String(data.get("objective", objective))
+	has_clothes = bool(data.get("has_clothes", true))
 	load_from_save = true
 	missions_changed.emit()
 	return true

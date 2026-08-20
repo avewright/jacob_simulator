@@ -2,6 +2,14 @@ extends Node3D
 
 const MISSIONS := [
 	{
+		"id": "clothes",
+		"label": "STORE — CLOTHES",
+		"hint": "You're in your underwear. Buy clothes (E).",
+		"pos": Vector3(26, 0, 10),
+		"color": Color("e63946"),
+		"kind": "shop",
+	},
+	{
 		"id": "north_point",
 		"label": "WORK — CLOCK IN",
 		"hint": "Walk into the office and clock in (E).",
@@ -92,7 +100,7 @@ func try_interact() -> bool:
 	if actor == null:
 		return false
 	for spec in MISSIONS:
-		if spec.kind not in ["sales", "gas"]:
+		if spec.kind not in ["sales", "gas", "shop"]:
 			continue
 		if GameState.is_mission_done(spec.id):
 			continue
@@ -116,12 +124,19 @@ func _complete_hold(spec: Dictionary) -> void:
 
 
 func _complete_interact(spec: Dictionary) -> void:
+	if spec.kind == "shop":
+		if GameState.buy_clothes():
+			_hide_marker(spec.id)
+		return
 	if spec.kind == "gas":
 		if not GameState.spend_money(40):
 			GameState.notice.emit("Need $40 for gas.")
 			return
 		GameState.fuel = 100.0
 		GameState.notice.emit("Tank full.")
+	elif not GameState.has_clothes:
+		GameState.notice.emit("HR sent you home. Dress code.")
+		return
 	else:
 		GameState.add_money(180)
 		GameState.notice.emit("Clocked in. Closed a deal. +$180")
@@ -137,7 +152,12 @@ func _hide_marker(id: String) -> void:
 
 
 func _refresh_objective() -> void:
+	if not GameState.has_clothes:
+		GameState.objective = "You're in your underwear. Buy clothes at the store (E)."
+		return
 	for spec in MISSIONS:
+		if spec.id == "clothes":
+			continue
 		if not GameState.is_mission_done(spec.id):
 			GameState.objective = String(spec.hint)
 			return
@@ -187,7 +207,7 @@ func _spawn(spec: Dictionary) -> void:
 	label.outline_modulate = Color.BLACK
 	label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
 	area.add_child(label)
-	if GameState.is_mission_done(spec.id):
+	if GameState.is_mission_done(spec.id) or (spec.id == "clothes" and GameState.has_clothes):
 		area.visible = false
 	add_child(area)
 	_areas[spec.id] = area

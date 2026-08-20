@@ -16,6 +16,11 @@ Truck Town vehicle SFX (engine, impact)
 Godot official demo — MIT
 https://github.com/godotengine/godot-demo-projects/tree/master/3d/truck_town
 
+Sedan — Quaternius Car via Poly Pizza — CC0 (public domain)
+https://poly.pizza/m/Cz6yDaUcM9
+https://static.poly.pizza/59a67a6c-490e-472e-bae6-5a4d2541f1c7.glb
+Baked to res://assets/vehicles/sedan.glb (Y-up, front +Z, Camry paint 8a0f18). See assets/vehicles/README.md
+
 MixaBridge (editor plugin)
 MIT — Uzair Mughal
 https://github.com/uzairdeveloper223/mixabridge

@@ -43,7 +43,7 @@ func _build() -> void:
 	root.add_child(title)
 
 	var sub := Label.new()
-	sub.text = "Alpharetta — drive the Camry, walk into work, get paid."
+	sub.text = "Alpharetta — wake up in your underwear, buy clothes, go to work."
 	sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	sub.add_theme_color_override("font_color", Color(0.85, 0.82, 0.72))
 	root.add_child(sub)
