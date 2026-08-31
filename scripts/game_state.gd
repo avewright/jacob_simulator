@@ -9,11 +9,21 @@ signal paused_changed(value: bool)
 signal missions_changed
 signal prompt_changed(text: String)
 signal clothes_changed(value: bool)
+signal car_health_changed(amount: float)
 
 const SAVE_PATH := "user://save.json"
 const START_MONEY := 420
 const START_FUEL := 78.0
 const CLOTHES_COST := 80
+const SALES_QUOTA := 3
+const LEAD_POOL := [
+	["Alicia Vance", "Brightline Logistics", 42000],
+	["Tom Okafor", "Redstone Dental Group", 18000],
+	["Marguerite Kelly", "Peachtree Supply Co", 27500],
+	["Devon Park", "Nimbus Freight", 61000],
+	["Sana Rahman", "Atlas Property Mgmt", 33000],
+	["Bill Trainer", "Trainer & Sons HVAC", 12500],
+]
 
 var money: int = START_MONEY:
 	set(value):
@@ -31,6 +41,10 @@ var in_car: bool = false:
 		in_car_changed.emit(in_car)
 
 var speed_mph: float = 0.0
+var car_health: float = 100.0:
+	set(value):
+		car_health = clampf(value, 0.0, 100.0)
+		car_health_changed.emit(car_health)
 var has_clothes: bool = false:
 	set(value):
 		if has_clothes == value:
@@ -42,9 +56,17 @@ var objective: String = "You're in your underwear. Buy clothes, then go to work.
 		objective = value
 		objective_changed.emit(objective)
 
+var sales_leads: Array = []
+var sales_calls: int = 0
+var sales_emails: int = 0
+var sales_deals: int = 0
+
 var missions_done: Dictionary = {}
 var is_paused: bool = false
 var load_from_save: bool = false
+# Set when Super Strikers is launched from the arcade in the Jacob world, so
+# the soccer scenes return to main.tscn instead of quitting to their own title.
+var soccer_from_world: bool = false
 var saved_player: Vector3 = Vector3(16.0, 0.0, 3.2)
 var saved_car: Vector3 = Vector3(16.0, 0.0, 0.0)
 var saved_car_yaw: float = 0.0
@@ -100,6 +122,11 @@ func reset_new_game() -> void:
 	fuel = START_FUEL
 	in_car = false
 	speed_mph = 0.0
+	car_health = 100.0
+	sales_leads = []
+	sales_calls = 0
+	sales_emails = 0
+	sales_deals = 0
 	missions_done = {}
 	saved_player = Vector3(16.0, 0.0, 3.2)
 	saved_car = Vector3(16.0, 0.0, 0.0)
@@ -108,6 +135,21 @@ func reset_new_game() -> void:
 	has_clothes = false
 	objective = "You're in your underwear. Buy clothes, then go to work."
 	missions_changed.emit()
+
+
+func ensure_leads() -> void:
+	if not sales_leads.is_empty():
+		return
+	for row in LEAD_POOL:
+		sales_leads.append({
+			"contact": row[0],
+			"company": row[1],
+			"value": row[2],
+			"interest": 20,
+			"stage": 0,
+			"emails": 0,
+			"status": "open",
+		})
 
 
 func has_save() -> bool:
@@ -150,6 +192,24 @@ func buy_clothes() -> bool:
 
 func consume_fuel(amount: float) -> void:
 	fuel = fuel - amount
+
+
+func enter_arcade() -> void:
+	# Stash where Jacob and the Camry are standing, then hand off to Super Strikers.
+	save_game()
+	soccer_from_world = true
+	is_paused = false
+	get_tree().paused = false
+	get_tree().change_scene_to_file("res://scenes/soccer/soccer_title.tscn")
+
+
+func leave_arcade() -> void:
+	# The autoload still holds the stashed transforms, so no disk read is needed.
+	soccer_from_world = false
+	is_paused = false
+	get_tree().paused = false
+	load_from_save = true
+	get_tree().change_scene_to_file("res://scenes/main.tscn")
 
 
 func set_paused(value: bool) -> void:

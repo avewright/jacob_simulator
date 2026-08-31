@@ -55,7 +55,7 @@ func _build() -> void:
 	root.add_child(_btn("QUIT", _quit))
 
 	var help := Label.new()
-	help.text = "WASD move  •  Shift sprint  •  E enter Camry  •  Mouse look  •  Esc pause"
+	help.text = "WASD move  •  Mouse steers  •  Shift sprint  •  E enter Camry / arcade  •  Esc pause"
 	help.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	help.add_theme_font_size_override("font_size", 13)
 	help.add_theme_color_override("font_color", Color(0.55, 0.55, 0.55))

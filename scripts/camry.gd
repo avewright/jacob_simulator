@@ -6,8 +6,16 @@ const ACCEL := 16.0
 const BRAKE := 36.0
 const COAST := 10.0
 const STEER_RATE := 1.85
-const ENTER_DIST := 12.0
+const ENTER_DIST := 5.0
 const EXIT_SPEED := 2.4
+const MAX_HEALTH := 100.0
+# Below this closing speed it is a scrape, not a crash.
+const CRASH_MIN_SPEED := 4.5
+const DAMAGE_PER_MPS := 3.4
+const CRASH_COOLDOWN := 0.4
+const SMOKE_AT := 60.0
+const FIRE_AT := 25.0
+const RESPAWN_DELAY := 7.0
 const ENGINE_SFX := preload("res://assets/audio/truck_town/engine.wav")
 const IMPACT_SFX := preload("res://assets/audio/truck_town/impact_1.wav")
 const SEDAN_PATH := "res://assets/vehicles/sedan.glb"
@@ -20,6 +28,14 @@ var _engine: AudioStreamPlayer3D
 var _impact: AudioStreamPlayer3D
 var _enter_frame: int = -100
 var _sedan_instance: Node3D = null
+var health: float = MAX_HEALTH
+var _crash_cooldown: float = 0.0
+var _smoke: GPUParticles3D
+var _fire: GPUParticles3D
+var _fire_light: OmniLight3D
+var _boom: GPUParticles3D
+var _boom_light: OmniLight3D
+var _boom_flash: float = 0.0
 
 
 func _ready() -> void:
@@ -27,6 +43,8 @@ func _ready() -> void:
 	_yaw = rotation.y
 	_setup_audio()
 	_build()
+	_build_damage_fx()
+	_set_health(MAX_HEALTH)
 	if GameState.load_from_save:
 		global_position = GameState.saved_car
 		_yaw = GameState.saved_car_yaw
@@ -35,6 +53,7 @@ func _ready() -> void:
 
 
 func _physics_process(delta: float) -> void:
+	_tick_fx(delta)
 	if not is_on_floor():
 		velocity.y -= _gravity * delta
 
@@ -97,9 +116,117 @@ func _apply_move() -> void:
 	var planar := Vector3(sin(_yaw), 0.0, cos(_yaw)) * _speed
 	velocity.x = planar.x
 	velocity.z = planar.z
+	var before := Vector2(velocity.x, velocity.z)
 	move_and_slide()
+	_check_crash(before)
 	if _engine:
 		_update_audio()
+
+
+func _check_crash(before: Vector2) -> void:
+	if _crash_cooldown > 0.0 or health <= 0.0:
+		return
+	var worst := 0.0
+	var what := "a wall"
+	for i in get_slide_collision_count():
+		var c := get_slide_collision(i)
+		var n := c.get_normal()
+		var flat := Vector2(n.x, n.z)
+		# A near-vertical normal is the road, not something we drove into.
+		if flat.length_squared() < 0.04:
+			continue
+		var closing := -before.dot(flat.normalized())
+		if closing > worst:
+			worst = closing
+			what = _describe(c.get_collider())
+	if worst < CRASH_MIN_SPEED:
+		return
+	_crash(worst, what)
+
+
+func _describe(collider: Object) -> String:
+	var n := collider as Node
+	if n == null:
+		return "something"
+	if n.is_in_group("traffic"):
+		return "another car"
+	if n.is_in_group("smashable"):
+		return "a tree"
+	return "a wall"
+
+
+func _crash(impact: float, what: String) -> void:
+	_crash_cooldown = CRASH_COOLDOWN
+	_speed *= 0.12
+	velocity.x = 0.0
+	velocity.z = 0.0
+	if _impact:
+		_impact.pitch_scale = randf_range(0.85, 1.15)
+		_impact.play()
+	_set_health(health - (impact - CRASH_MIN_SPEED) * DAMAGE_PER_MPS)
+	if health > 0.0:
+		GameState.notice.emit("Hit %s — Camry at %d%%." % [what, int(round(health))])
+
+
+func _set_health(value: float) -> void:
+	health = clampf(value, 0.0, MAX_HEALTH)
+	GameState.car_health = health
+	if _smoke:
+		_smoke.emitting = health <= SMOKE_AT and health > 0.0
+	if _fire:
+		_fire.emitting = health <= FIRE_AT and health > 0.0
+	if _fire_light:
+		_fire_light.visible = health <= FIRE_AT and health > 0.0
+	if health <= 0.0:
+		_explode()
+
+
+func _tick_fx(delta: float) -> void:
+	if _crash_cooldown > 0.0:
+		_crash_cooldown -= delta
+	if _fire_light and _fire_light.visible:
+		_fire_light.light_energy = 2.4 + sin(Time.get_ticks_msec() * 0.021) * 0.9
+	if _boom_flash > 0.0:
+		_boom_flash -= delta
+		if _boom_light:
+			_boom_light.light_energy = maxf(_boom_flash, 0.0) * 26.0
+			_boom_light.visible = _boom_flash > 0.0
+
+
+func _explode() -> void:
+	_speed = 0.0
+	velocity = Vector3.ZERO
+	if _smoke:
+		_smoke.emitting = false
+	if _fire:
+		_fire.emitting = false
+	if _fire_light:
+		_fire_light.visible = false
+	if _boom:
+		_boom.restart()
+		_boom.emitting = true
+	_boom_flash = 0.6
+	if _impact:
+		_impact.pitch_scale = 0.55
+		_impact.play()
+	if GameState.in_car:
+		var player := get_tree().get_first_node_in_group("player")
+		var out := global_position + global_transform.basis.x * 3.2
+		out.y = maxf(global_position.y, 0.0)
+		GameState.in_car = false
+		GameState.prompt = ""
+		if player and player.has_method("exit_car"):
+			player.exit_car(out, _yaw)
+		if player and player.has_method("hit_by_car"):
+			player.hit_by_car(global_transform.basis.x, 11.0)
+	GameState.notice.emit("The Camry blew up. R for a new one.")
+	get_tree().create_timer(RESPAWN_DELAY).timeout.connect(_respawn_wreck)
+
+
+func _respawn_wreck() -> void:
+	if health > 0.0:
+		return
+	_reset_near_player()
 
 
 func _setup_audio() -> void:
@@ -148,33 +275,10 @@ func try_enter() -> bool:
 	if player == null:
 		return false
 	if not in_enter_range():
-		var d2 := Vector2(global_position.x, global_position.z).distance_to(Vector2(player.global_position.x, player.global_position.z))
-		# Snap fallback per brief: E on foot = enter if within ~20m, else snap in.
-		if d2 <= 20.0:
-			# Within 20m, snap camry beside player and enter.
-			global_position = player.global_position + Vector3(4.0, 0.2, 0.0)
-			_yaw = player.rotation.y
-			rotation.y = _yaw
-			_speed = 0.0
-			velocity = Vector3.ZERO
-		elif d2 > 20.0:
-			# Far away or fallen through world — teleport beside player.
-			global_position = player.global_position + Vector3(4.0, 0.2, 0.0)
-			_yaw = player.rotation.y
-			rotation.y = _yaw
-			_speed = 0.0
-			velocity = Vector3.ZERO
-		# Also handle huge Y displacement
-		if absf(global_position.y) > 5.0 or absf(player.global_position.y) > 5.0:
-			global_position.y = maxf(player.global_position.y, 0.2)
-			player.global_position.y = maxf(player.global_position.y, 0.0)
-	# Ensure distance now valid after snap
-	if not in_enter_range():
-		# Final safety: if still not in range after snap, force enter anyway when E pressed in lot (x 8-32, z -15-15)
-		var is_lot := player.global_position.x > 8.0 and player.global_position.x < 32.0 and player.global_position.z > -15.0 and player.global_position.z < 15.0
-		if not is_lot:
-			GameState.notice.emit("Walk up to the Camry, then press E.")
-			return false
+		return false
+	if health <= 0.0:
+		GameState.notice.emit("The Camry is wrecked. Press R to call a new one.")
+		return false
 	_lock_player_in()
 	_enter_frame = Engine.get_physics_frames()
 	GameState.in_car = true
@@ -224,7 +328,76 @@ func _reset_near_player() -> void:
 	global_position = player.global_position + Vector3(4.0, 0.2, 0.0)
 	_yaw = player.rotation.y
 	rotation.y = _yaw
-	GameState.notice.emit("Camry reset.")
+	_crash_cooldown = CRASH_COOLDOWN
+	_set_health(MAX_HEALTH)
+	GameState.notice.emit("Fresh Camry delivered.")
+
+
+func _build_damage_fx() -> void:
+	_smoke = _particles(24, 1.7, Color(0.22, 0.22, 0.24, 0.7), 1.15, 2.4, 0.7, false)
+	_smoke.position = Vector3(0, 0.85, 1.55)
+	add_child(_smoke)
+
+	_fire = _particles(30, 0.55, Color(1.0, 0.55, 0.12, 0.9), 0.9, 1.5, 0.45, true)
+	_fire.position = Vector3(0, 0.8, 1.55)
+	add_child(_fire)
+
+	_fire_light = OmniLight3D.new()
+	_fire_light.position = Vector3(0, 1.1, 1.55)
+	_fire_light.light_color = Color("ff7a1a")
+	_fire_light.omni_range = 9.0
+	_fire_light.visible = false
+	add_child(_fire_light)
+
+	_boom = _particles(90, 1.1, Color(1.0, 0.72, 0.2, 1.0), 6.0, 13.0, 1.1, true)
+	_boom.position = Vector3(0, 0.9, 0)
+	_boom.one_shot = true
+	_boom.explosiveness = 1.0
+	_boom.emitting = false
+	add_child(_boom)
+
+	_boom_light = OmniLight3D.new()
+	_boom_light.position = Vector3(0, 1.4, 0)
+	_boom_light.light_color = Color("ffd08a")
+	_boom_light.omni_range = 26.0
+	_boom_light.visible = false
+	add_child(_boom_light)
+
+
+func _particles(count: int, life: float, tint: Color, vmin: float, vmax: float, size: float, additive: bool) -> GPUParticles3D:
+	var p := GPUParticles3D.new()
+	p.amount = count
+	p.lifetime = life
+	p.emitting = false
+	# World space so smoke and flame trail behind a moving wreck.
+	p.local_coords = false
+
+	var lift := 1.2 if additive else 0.5
+	var pm := ParticleProcessMaterial.new()
+	pm.direction = Vector3(0, 1, 0)
+	pm.spread = 22.0
+	pm.initial_velocity_min = vmin
+	pm.initial_velocity_max = vmax
+	pm.gravity = Vector3(0, lift, 0)
+	pm.scale_min = 0.6
+	pm.scale_max = 1.4
+	pm.color = tint
+	p.process_material = pm
+
+	var quad := QuadMesh.new()
+	quad.size = Vector2(size, size)
+	var mat := StandardMaterial3D.new()
+	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	mat.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
+	mat.billboard_keep_scale = true
+	mat.vertex_color_use_as_albedo = true
+	mat.albedo_color = tint
+	if additive:
+		mat.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+	quad.material = mat
+	p.draw_pass_1 = quad
+	return p
 
 
 func _make_enter_zone() -> void:
@@ -281,19 +454,17 @@ func _build() -> void:
 			if inst is Node3D:
 				var sedan := inst as Node3D
 				sedan.name = "Sedan"
-				# Quaternius sedan NormalCar1: full AABB X 1.807, Y 1.177, Z 4.221 (front +Z, Y up), min_y 0.006.
-				# Keep near-original length ~4.35. Uniform scale preserves proportions.
+				# Quaternius NormalCar1 ships raw Blender Z-up: length runs along Y
+				# (front = +Y), up is -Z, wheel contact at z = -0.00603. Rx +90 maps
+				# -Z up to +Y and +Y front to +Z, the way _apply_move() drives.
 				var base_len := 4.220717430114746
 				var target_len := 4.35
 				var s_len := target_len / base_len
 				sedan.scale = Vector3(s_len, s_len, s_len)
-				# Y up, front +Z matches CharacterBody forward (+Z via sin/cos). No Y rotation needed.
-				sedan.rotation_degrees.y = 0.0
-				# Lift so wheels sit just above ground: base min_y 0.006 * scale.
-				var base_min_y := 0.006029833573848009
-				sedan.position.y = 0.02 - base_min_y * s_len
-				sedan.position.x = 0.0
-				sedan.position.z = 0.02
+				sedan.rotation_degrees = Vector3(90.0, 0.0, 0.0)
+				# Body origin rests on the ground, so drop the wheels onto y = 0.
+				var wheel_contact := 0.006029833573848009
+				sedan.position = Vector3(0.0, -wheel_contact * s_len, 0.0)
 				add_child(sedan)
 				_sedan_instance = sedan
 				_set_shadows_recursive(sedan, true)

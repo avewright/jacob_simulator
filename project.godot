@@ -1,12 +1,18 @@
 ; Engine configuration file.
-; Godot 4.7 — Forward+ on Metal (Apple Silicon / M5 Pro)
+; It's best edited using the editor UI and not directly,
+; since the parameters that go here are not all obvious.
+;
+; Format:
+;   [section] ; section goes between []
+;   param=value ; assign values to parameters
+
 config_version=5
 
 [application]
 
-config/name="Super Strikers"
-config/description="Arcade soccer with punch, kick, and body slam."
-run/main_scene="res://scenes/soccer/soccer_title.tscn"
+config/name="Jacob Simulator"
+config/description="Alpharetta open world. Drive the Camry, go to work, hit the Super Strikers arcade."
+run/main_scene="res://scenes/ui/title.tscn"
 config/features=PackedStringArray("4.7", "Forward Plus")
 config/icon="res://icon.svg"
 
@@ -14,19 +20,16 @@ config/icon="res://icon.svg"
 
 GameState="*res://scripts/game_state.gd"
 
-[editor_plugins]
-
-enabled=PackedStringArray("res://addons/mixabridge/plugin.cfg")
-
 [display]
 
 window/size/viewport_width=1280
 window/size/viewport_height=720
-window/size/mode=0
 window/stretch/mode="canvas_items"
 window/stretch/aspect="expand"
-window/dpi/allow_hidpi=true
-window/vsync/vsync_mode=1
+
+[editor_plugins]
+
+enabled=PackedStringArray("res://addons/mixabridge/plugin.cfg")
 
 [input]
 
@@ -103,11 +106,9 @@ common/physics_interpolation=true
 
 [rendering]
 
-renderer/rendering_method="forward_plus"
-rendering_device/driver.darwin="metal"
-lights_and_shadows/directional_shadow/size=4096
 lights_and_shadows/directional_shadow/soft_shadow_filter_quality=3
 anti_aliasing/quality/msaa_3d=2
+environment/defaults/default_clear_color=Color(0.62, 0.75, 0.91, 1)
 anti_aliasing/quality/screen_space_aa=1
 occlusion_culling/use_occlusion_culling=true
-environment/defaults/default_clear_color=Color(0.62, 0.75, 0.91, 1)
+rendering_device/driver.darwin="metal"

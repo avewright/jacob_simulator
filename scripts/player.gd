@@ -6,19 +6,21 @@ const ACCEL := 32.0
 const FRICTION := 42.0
 const JUMP_VELOCITY := 5.0
 const TURN_SPEED := 7.2
-const CAR_RANGE := 10.0
+const KNOCK_TIME := 2.4
+const GETUP_AT := 0.9
 
 @onready var visuals: JacobLook = $Visuals
 
 var _gravity: float = ProjectSettings.get_setting("physics/3d/default_gravity")
 var _cam: Node3D
+var _knocked: float = 0.0
+var _roll: float = 0.0
 
 
 func _ready() -> void:
 	add_to_group("player")
 	floor_snap_length = 0.4
 	floor_max_angle = deg_to_rad(50.0)
-	_cam = get_tree().get_first_node_in_group("camera_rig")
 	if GameState.load_from_save:
 		global_position = GameState.saved_player
 	_set_on_foot(true)
@@ -28,6 +30,9 @@ func _ready() -> void:
 
 func _physics_process(delta: float) -> void:
 	if GameState.in_car or GameState.is_paused:
+		return
+	if _knocked > 0.0:
+		_process_knockdown(delta)
 		return
 	if not is_on_floor():
 		velocity.y -= _gravity * delta
@@ -52,6 +57,17 @@ func _physics_process(delta: float) -> void:
 	visuals.animate(velocity, is_on_floor(), sprinting, wish.length_squared() > 0.001, delta)
 	_update_prompt()
 	if Input.is_action_just_pressed("interact"):
+		if _arcade_in_range():
+			GameState.enter_arcade()
+			return
+		var desk := _near("sales_terminal")
+		if desk:
+			desk.open()
+			return
+		var mate := _near("office_npc")
+		if mate:
+			mate.talk()
+			return
 		if _try_enter_car():
 			return
 		var missions := get_tree().get_first_node_in_group("mission_system")
@@ -59,12 +75,61 @@ func _physics_process(delta: float) -> void:
 			missions.try_interact()
 
 
+func hit_by_car(forward: Vector3, speed: float) -> void:
+	if _knocked > 0.0 or GameState.in_car:
+		return
+	var push := Vector3(forward.x, 0.0, forward.z)
+	if push.length_squared() < 0.0001:
+		push = -visuals.global_transform.basis.z
+	push = push.normalized()
+	_knocked = KNOCK_TIME
+	_roll = randf_range(-2.2, 2.2)
+	velocity = push * clampf(speed * 0.85, 7.0, 17.0) + Vector3.UP * 5.4
+	GameState.prompt = ""
+	GameState.notice.emit("Hit by a car!")
+
+
+func _process_knockdown(delta: float) -> void:
+	_knocked -= delta
+	if not is_on_floor():
+		velocity.y -= _gravity * delta
+	var planar := Vector3(velocity.x, 0.0, velocity.z)
+	# Skid to a stop once he lands, then hold before getting up.
+	var drag: float = 14.0 if is_on_floor() else 2.5
+	planar = planar.move_toward(Vector3.ZERO, drag * delta)
+	velocity.x = planar.x
+	velocity.z = planar.z
+	move_and_slide()
+
+	var down := _knocked > GETUP_AT
+	var rate: float = 10.0 if down else 7.0
+	var pitch: float = -PI * 0.5 if down else 0.0
+	var roll: float = _roll if down else 0.0
+	var weight := 1.0 - exp(-rate * delta)
+	visuals.rotation.x = lerp_angle(visuals.rotation.x, pitch, weight)
+	visuals.rotation.z = lerp_angle(visuals.rotation.z, roll, weight)
+	visuals.animate(Vector3.ZERO, is_on_floor(), false, false, delta)
+	if _knocked <= 0.0:
+		_knocked = 0.0
+		visuals.rotation.x = 0.0
+		visuals.rotation.z = 0.0
+
+
+func _camera_rig() -> Node3D:
+	# CameraRig sits after Jacob in main.tscn, so it has not joined the group
+	# yet when _ready() runs here. Resolve on first use instead.
+	if _cam == null or not is_instance_valid(_cam):
+		_cam = get_tree().get_first_node_in_group("camera_rig") as Node3D
+	return _cam
+
+
 func _cam_wish(input_dir: Vector2) -> Vector3:
 	if input_dir.length_squared() < 0.0001:
 		return Vector3.ZERO
 	var look := Vector3.FORWARD
-	if _cam:
-		look = -_cam.global_transform.basis.z
+	var rig := _camera_rig()
+	if rig:
+		look = -rig.global_transform.basis.z
 	look.y = 0.0
 	if look.length_squared() < 0.0001:
 		look = Vector3.FORWARD
@@ -90,7 +155,30 @@ func _update_prompt() -> void:
 	if shop and not GameState.has_clothes and global_position.distance_to(shop.global_position) < 7.0:
 		GameState.prompt = "E  Buy clothes — $%d" % GameState.CLOTHES_COST
 		return
+	if _arcade_in_range():
+		GameState.prompt = "E  Play Super Strikers"
+		return
+	if _near("sales_terminal"):
+		GameState.prompt = "E  Start your shift"
+		return
+	var mate := _near("office_npc")
+	if mate:
+		GameState.prompt = "E  Talk to %s" % String(mate.npc_name).split(" —")[0]
+		return
 	GameState.prompt = ""
+
+
+func _near(group: String) -> Node3D:
+	for n in get_tree().get_nodes_in_group(group):
+		var node := n as Node3D
+		if node and node.has_method("in_range") and node.in_range(self):
+			return node
+	return null
+
+
+func _arcade_in_range() -> bool:
+	var arcade := get_tree().get_first_node_in_group("soccer_arcade")
+	return arcade != null and arcade.has_method("in_range") and arcade.in_range(self)
 
 
 func _try_enter_car() -> bool:
@@ -103,7 +191,8 @@ func _try_enter_car() -> bool:
 func _set_on_foot(enabled: bool) -> void:
 	visible = enabled
 	collision_layer = 2 if enabled else 0
-	collision_mask = 1 if enabled else 0
+	# world + vehicle, so traffic and the Camry are solid to Jacob on foot.
+	collision_mask = 5 if enabled else 0
 	process_mode = Node.PROCESS_MODE_INHERIT if enabled else Node.PROCESS_MODE_DISABLED
 	if not enabled:
 		GameState.prompt = ""

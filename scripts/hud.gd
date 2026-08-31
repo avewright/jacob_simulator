@@ -4,6 +4,7 @@ const GOLD := Color("ffb703")
 
 var _money: Label
 var _fuel: Label
+var _health: Label
 var _state: Label
 var _speed: Label
 var _objective: Label
@@ -19,6 +20,7 @@ func _ready() -> void:
 	_build()
 	GameState.money_changed.connect(func(v: int) -> void: _money.text = "$%d" % v)
 	GameState.fuel_changed.connect(func(v: float) -> void: _fuel.text = "%d%%" % int(round(v)))
+	GameState.car_health_changed.connect(_on_car_health)
 	GameState.objective_changed.connect(func(t: String) -> void: _objective.text = t)
 	GameState.notice.connect(_flash)
 	GameState.paused_changed.connect(_on_paused)
@@ -26,6 +28,7 @@ func _ready() -> void:
 	_money.text = "$%d" % GameState.money
 	_fuel.text = "%d%%" % int(round(GameState.fuel))
 	_objective.text = GameState.objective
+	_on_car_health(GameState.car_health)
 
 
 func _process(delta: float) -> void:
@@ -51,6 +54,18 @@ func _unhandled_input(event: InputEvent) -> void:
 			_resume()
 		else:
 			GameState.set_paused(true)
+
+
+func _on_car_health(v: float) -> void:
+	_health.text = "CAR %d%%" % int(round(v))
+	if v <= 0.0:
+		_health.add_theme_color_override("font_color", Color("ff3b30"))
+	elif v <= 25.0:
+		_health.add_theme_color_override("font_color", Color("ff7a1a"))
+	elif v <= 60.0:
+		_health.add_theme_color_override("font_color", Color("ffd166"))
+	else:
+		_health.add_theme_color_override("font_color", GOLD)
 
 
 func _flash(text: String) -> void:
@@ -86,6 +101,7 @@ func _build() -> void:
 
 	_money = _pill(top, "$420")
 	_fuel = _pill(top, "78%")
+	_health = _pill(top, "100%")
 	_state = _pill(top, "ON FOOT")
 	_speed = _pill(top, "")
 
@@ -126,7 +142,7 @@ func _build() -> void:
 	_prompt.add_theme_color_override("font_color", GOLD)
 	add_child(_prompt)
 
-	help.text = "WASD move / drive\nShift sprint  Space jump / handbrake\nE Camry / clothes / work   R reset car   Esc pause"
+	help.text = "WASD move / drive   Mouse steers\nShift sprint  Space jump / handbrake\nE Camry / clothes / arcade   R new Camry   Esc pause"
 	help.add_theme_font_size_override("font_size", 13)
 	help.add_theme_color_override("font_color", Color(0.85, 0.85, 0.85, 0.85))
 	add_child(help)

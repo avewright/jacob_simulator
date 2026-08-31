@@ -3,13 +3,22 @@ extends Node3D
 
 const CIVILIAN := preload("res://assets/characters/BusinessMan.glb")
 const SOLDIER := preload("res://assets/characters/Soldier.glb")
+const FACE_TEX := preload("res://assets/characters/jacob_face.png")
 
 @export var team_tint := Color(0.22, 0.38, 0.58)
+@export var show_face := true
+## Metres from the head bone: +Y up the skull, +Z out the front of the face.
+## Nudge in the inspector if the photo lands high, low, or on the back of the head.
+@export var face_offset := Vector3(0.0, 0.055, 0.1)
+@export var face_size := Vector2(0.2, 0.26)
 
 var _actor: Node3D
 var _ap: AnimationPlayer
 var _current := ""
 var _clip_map: Dictionary = {}
+var _face: MeshInstance3D
+var _skel: Skeleton3D
+var _head_bone: int = -1
 
 
 func _ready() -> void:
@@ -31,6 +40,7 @@ func _ready() -> void:
 				_ap.get_animation(actual).loop_mode = Animation.LOOP_LINEAR
 		_play("Idle")
 	call_deferred("_fit_and_face")
+	call_deferred("_attach_face")
 
 
 func animate(vel: Vector3, on_floor: bool, sprinting: bool, moving: bool, delta: float) -> void:
@@ -62,6 +72,10 @@ func animate(vel: Vector3, on_floor: bool, sprinting: bool, moving: bool, delta:
 		_play("Idle")
 		if _ap:
 			_ap.speed_scale = lerpf(_ap.speed_scale, 1.0, 1.0 - exp(-8.0 * delta))
+
+
+func _process(_delta: float) -> void:
+	_update_face()
 
 
 func set_clothed(_has: bool) -> void:
@@ -143,7 +157,54 @@ func _all_meshes(node: Node) -> Array:
 	return out
 
 func _attach_face() -> void:
-	return
+	if not show_face or _face != null:
+		return
+	await get_tree().process_frame
+	await get_tree().process_frame
+	_skel = _find_skeleton(_actor)
+	if _skel:
+		_head_bone = _skel.find_bone("Head")
+
+	var quad := QuadMesh.new()
+	quad.size = face_size
+	var mat := StandardMaterial3D.new()
+	mat.albedo_texture = FACE_TEX
+	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	mat.alpha_scissor_threshold = 0.35
+	mat.cull_mode = BaseMaterial3D.CULL_DISABLED
+	mat.shading_mode = BaseMaterial3D.SHADING_MODE_PER_PIXEL
+	mat.roughness = 0.85
+	quad.material = mat
+
+	# Parented to JacobLook rather than the head bone: this node carries the
+	# character yaw at unit scale, so +Z is reliably "out the front of the face"
+	# without depending on the rig's bone-space axes.
+	_face = MeshInstance3D.new()
+	_face.name = "Face"
+	_face.mesh = quad
+	_face.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	add_child(_face)
+	_update_face()
+
+
+func _update_face() -> void:
+	if _face == null:
+		return
+	var head := Vector3(0.0, 1.62, 0.0)
+	if _skel and _head_bone >= 0:
+		head = to_local((_skel.global_transform * _skel.get_bone_global_pose(_head_bone)).origin)
+	_face.position = head + face_offset
+	_face.rotation = Vector3.ZERO
+
+
+func _find_skeleton(root: Node) -> Skeleton3D:
+	if root is Skeleton3D:
+		return root as Skeleton3D
+	for c in root.get_children():
+		var found := _find_skeleton(c)
+		if found:
+			return found
+	return null
 
 func _tint_mesh(mesh: MeshInstance3D) -> void:
 	var src := mesh.get_active_material(0)

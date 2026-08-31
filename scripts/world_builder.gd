@@ -1,5 +1,10 @@
 extends Node3D
 
+# Road centre + asphalt width, matching the _roads() calls below.
+const ROADS_NS := [[0.0, 28.0], [-140.0, 14.0], [90.0, 12.0]]
+const ROADS_EW := [[-48.0, 14.0], [48.0, 14.0], [160.0, 12.0]]
+const SIDEWALK := 2.4
+
 var _rng := RandomNumberGenerator.new()
 var _buildings: Array[Dictionary] = []
 var _office_mat: StandardMaterial3D
@@ -260,7 +265,7 @@ func _wall(pos: Vector3, size: Vector3) -> void:
 	_static_box_raw(pos, size, _office_mat)
 
 
-func _static_box_raw(pos: Vector3, size: Vector3, material: Material) -> void:
+func _static_box_raw(pos: Vector3, size: Vector3, material: Material) -> StaticBody3D:
 	var body := StaticBody3D.new()
 	body.collision_layer = 1
 	body.collision_mask = 0
@@ -277,10 +282,11 @@ func _static_box_raw(pos: Vector3, size: Vector3, material: Material) -> void:
 	col.shape = shape
 	body.add_child(col)
 	add_child(body)
+	return body
 
 
 func _hedge(pos: Vector3, size: Vector3) -> void:
-	_static_box_raw(pos, size, _mat(Color("1a4a1c"), 0.9))
+	_static_box_raw(pos, size, _mat(Color("1a4a1c"), 0.9)).add_to_group("smashable")
 
 
 func _sign(pos: Vector3, text: String) -> void:
@@ -337,6 +343,9 @@ func _blocked(x: float, z: float) -> bool:
 		return true
 	if x > 2.0 and x < 58.0 and absf(z) < 22.0:
 		return true
+	# Super Strikers arcade plot.
+	if x > 14.0 and x < 48.0 and z > -40.0 and z < -20.0:
+		return true
 	return false
 
 
@@ -348,6 +357,33 @@ func _on_road(x: float, z: float) -> bool:
 		if absf(z - rz) < 12.0:
 			return true
 	return false
+
+
+func _on_pavement(x: float, z: float, margin: float = 1.2) -> bool:
+	# Tight test against the real asphalt + sidewalk, unlike the conservative
+	# _on_road() used to keep buildings off whole blocks.
+	for r in ROADS_NS:
+		if absf(x - r[0]) < r[1] * 0.5 + SIDEWALK + margin:
+			return true
+	for r in ROADS_EW:
+		if absf(z - r[0]) < r[1] * 0.5 + SIDEWALK + margin:
+			return true
+	return false
+
+
+func _tree_collider(x: float, z: float) -> void:
+	var body := StaticBody3D.new()
+	body.collision_layer = 1
+	body.collision_mask = 0
+	body.position = Vector3(x, 1.6, z)
+	body.add_to_group("smashable")
+	var col := CollisionShape3D.new()
+	var shape := CylinderShape3D.new()
+	shape.radius = 0.42
+	shape.height = 3.2
+	col.shape = shape
+	body.add_child(col)
+	add_child(body)
 
 
 func _trees() -> void:
@@ -369,13 +405,17 @@ func _trees() -> void:
 	var i := -320.0
 	while i <= 320.0:
 		if absf(i) > 24.0:
-			spots.append(Vector3(-18.5 + _rng.randf_range(-1.2, 1.2), 0, i))
-			spots.append(Vector3(18.5 + _rng.randf_range(-1.2, 1.2), 0, i))
+			# Verge trees flank the avenue; skip where a cross street cuts through.
+			for side in [-19.0, 19.0]:
+				var vx: float = side + _rng.randf_range(-0.8, 0.8)
+				if _on_pavement(vx, i) or _blocked(vx, i):
+					continue
+				spots.append(Vector3(vx, 0, i))
 		i += 14.0
 	for n in 70:
 		var x := _rng.randf_range(-300, 300)
 		var z := _rng.randf_range(-300, 300)
-		if _blocked(x, z) or _on_road(x, z):
+		if _blocked(x, z) or _on_pavement(x, z):
 			continue
 		spots.append(Vector3(x, 0, z))
 	trunk_mm.instance_count = spots.size()
@@ -383,6 +423,7 @@ func _trees() -> void:
 	var greens := [Color("1a5a22"), Color("23702a"), Color("0f4a18")]
 	var idx := 0
 	for s in spots:
+		_tree_collider(s.x, s.z)
 		trunk_mm.set_instance_transform(idx, Transform3D(Basis.IDENTITY, Vector3(s.x, 1.6, s.z)))
 		for k in 3:
 			var xf := Transform3D(Basis.IDENTITY.scaled(Vector3(1.0 + k * 0.12, 0.85, 1.0 + k * 0.12)), Vector3(s.x + _rng.randf_range(-0.4, 0.4), 3.1 + k * 0.7, s.z + _rng.randf_range(-0.4, 0.4)))

@@ -49,8 +49,11 @@ func _build() -> void:
 	root.add_child(sub)
 
 	root.add_child(_btn("KICK OFF", _play))
-	root.add_child(_btn("JACOB SIMULATOR", _jacob))
-	root.add_child(_btn("QUIT", get_tree().quit))
+	if GameState.soccer_from_world:
+		root.add_child(_btn("LEAVE ARCADE", GameState.leave_arcade))
+	else:
+		root.add_child(_btn("JACOB SIMULATOR", _jacob))
+		root.add_child(_btn("QUIT", get_tree().quit))
 
 	var help := Label.new()
 	help.text = "WASD move  •  J / LMB kick (hold to charge)  •  K punch  •  Space slam"

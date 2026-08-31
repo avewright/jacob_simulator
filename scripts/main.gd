@@ -8,7 +8,11 @@ func _ready() -> void:
 		GameState.in_car = false
 	GameState.apply_saved_transforms()
 	if resume_car:
-		var car := get_tree().get_first_node_in_group("camry")
+		var car := get_tree().get_first_node_in_group("camry") as Node3D
+		var player := get_tree().get_first_node_in_group("player") as Node3D
+		# Entry is proximity-gated now, so stand Jacob at the car before re-seating him.
+		if car and player:
+			player.global_position = car.global_position + car.global_transform.basis.x * 2.4
 		if car and car.has_method("try_enter"):
 			car.try_enter()
 	if GameState.has_clothes:
