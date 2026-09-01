@@ -15,14 +15,17 @@ const SAVE_PATH := "user://save.json"
 const START_MONEY := 420
 const START_FUEL := 78.0
 const CLOTHES_COST := 80
-const SALES_QUOTA := 3
+const SALES_QUOTA := 4
+# contact, account, amount, lead source, close date
 const LEAD_POOL := [
-	["Alicia Vance", "Brightline Logistics", 42000],
-	["Tom Okafor", "Redstone Dental Group", 18000],
-	["Marguerite Kelly", "Peachtree Supply Co", 27500],
-	["Devon Park", "Nimbus Freight", 61000],
-	["Sana Rahman", "Atlas Property Mgmt", 33000],
-	["Bill Trainer", "Trainer & Sons HVAC", 12500],
+	["Alicia Vance", "Brightline Logistics", 42000, "Web — Demo Request", "31/10/2026"],
+	["Tom Okafor", "Redstone Dental Group", 18000, "Inbound Call", "15/10/2026"],
+	["Marguerite Kelly", "Peachtree Supply Co", 27500, "Trade Show", "07/11/2026"],
+	["Devon Park", "Nimbus Freight", 61000, "Partner Referral", "30/11/2026"],
+	["Sana Rahman", "Atlas Property Mgmt", 33000, "Web — Content", "22/10/2026"],
+	["Bill Trainer", "Trainer & Sons HVAC", 12500, "Cold List", "09/10/2026"],
+	["Renata Cho", "Kestrel Analytics", 88000, "Partner Referral", "18/12/2026"],
+	["Owen Brady", "Sandhill Roofing", 15400, "Cold List", "03/11/2026"],
 ]
 
 var money: int = START_MONEY:
@@ -60,6 +63,8 @@ var sales_leads: Array = []
 var sales_calls: int = 0
 var sales_emails: int = 0
 var sales_deals: int = 0
+var sales_converted: int = 0
+var sales_lost: int = 0
 
 var missions_done: Dictionary = {}
 var is_paused: bool = false
@@ -127,6 +132,8 @@ func reset_new_game() -> void:
 	sales_calls = 0
 	sales_emails = 0
 	sales_deals = 0
+	sales_converted = 0
+	sales_lost = 0
 	missions_done = {}
 	saved_player = Vector3(16.0, 0.0, 3.2)
 	saved_car = Vector3(16.0, 0.0, 0.0)
@@ -145,9 +152,12 @@ func ensure_leads() -> void:
 			"contact": row[0],
 			"company": row[1],
 			"value": row[2],
+			"source": row[3],
+			"close_date": row[4],
 			"interest": 20,
 			"stage": 0,
 			"emails": 0,
+			"converted": false,
 			"status": "open",
 		})
 

@@ -35,6 +35,9 @@ const FLOORS := [
 var _leaves: Array[AnimatableBody3D] = []
 var _open: float = 0.0
 var _shell: StandardMaterial3D
+var _stone: StandardMaterial3D
+var _curtain: StandardMaterial3D
+var _spandrel: StandardMaterial3D
 var _slabmat: StandardMaterial3D
 var _glass: StandardMaterial3D
 var _trim: StandardMaterial3D
@@ -87,11 +90,50 @@ func landing(index: int) -> Vector3:
 # ------------------------------------------------------------------ shell
 
 func _make_mats() -> void:
-	_shell = _mat(Color("8c8f96"), 0.75)
+	# Palette off the reference: warm grey-pink precast piers against a dark
+	# blue-green reflective curtain wall.
+	_shell = _mat(Color("a3928c"), 0.72)
+	_stone = _mat(Color("b0a099"), 0.6)
+	_curtain = _mat(Color("15343a"), 0.12, 0.75)
+	_spandrel = _mat(Color("0e2429"), 0.2, 0.5)
 	_slabmat = _mat(Color("4a4f57"), 0.85)
 	_trim = _mat(Color("c9a227"), 0.35, 0.6)
 	_glass = _mat(Color(0.42, 0.62, 0.78, 0.45), 0.06, 0.2)
 	_glass.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+
+
+## Clads one elevation. `ns` true means the face lies in the XY plane at
+## z = out_v; false means the YZ plane at x = out_v.
+func _clad(ns: bool, out_v: float, length: float, bays: int, storefront: bool) -> void:
+	var away := signf(out_v)
+	var half := length * 0.5
+	var step := length / float(bays)
+
+	# Recessed glass field behind the piers.
+	_face_box(ns, 0.0, ROOF_Y * 0.5 + 0.3, out_v + away * 0.02, length - 0.6, ROOF_Y - 0.6, 0.18, _curtain)
+	# Precast piers.
+	for i in range(bays + 1):
+		var u := -half + i * step
+		_face_box(ns, u, ROOF_Y * 0.5, out_v + away * 0.16, 1.5, ROOF_Y, 0.34, _stone)
+	# Spandrel band at each floor line, plus one at the parapet.
+	for f in FLOORS:
+		_face_box(ns, 0.0, f.y - 0.35, out_v + away * 0.1, length - 3.4, 0.9, 0.26, _spandrel)
+	_face_box(ns, 0.0, ROOF_Y - 1.1, out_v + away * 0.1, length - 3.4, 0.9, 0.26, _spandrel)
+
+	if storefront:
+		# Taller, clearer glazing at street level with a canopy over it.
+		_face_box(ns, 0.0, 1.7, out_v + away * 0.22, length - 4.0, 3.2, 0.14, _glass)
+		_face_box(ns, 0.0, 3.55, out_v + away * 0.75, length - 3.0, 0.22, 1.7, _stone)
+
+	# Overhanging cornice, the flat cap in the photo.
+	_face_box(ns, 0.0, ROOF_Y + 0.3, out_v + away * 0.5, length + 1.6, 0.7, 1.3, _stone)
+
+
+func _face_box(ns: bool, u: float, y: float, out_v: float, su: float, sy: float, so: float, material: Material) -> void:
+	if ns:
+		_box(Vector3(u, y, out_v), Vector3(su, sy, so), material, false)
+	else:
+		_box(Vector3(out_v, y, u), Vector3(so, sy, su), material, false)
 
 
 func _build_shell() -> void:
@@ -106,14 +148,19 @@ func _build_shell() -> void:
 	# Ground slab.
 	_box(Vector3(0, 0.1, 0), Vector3(W, 0.2, D), _slabmat, true)
 
-	# Window bands, one per level on each face. Decoration only, no collision.
-	for f in FLOORS:
-		var y: float = f.y + 2.6
-		_box(Vector3(0, y, -hz - 0.05), Vector3(W - 3.0, 2.0, 0.12), _glass, false)
-		_box(Vector3(0, y, hz + 0.05), Vector3(W - 3.0, 2.0, 0.12), _glass, false)
-		_box(Vector3(hx + 0.05, y, 0), Vector3(0.12, 2.0, D - 3.0), _glass, false)
-		if f.y > 1.0:
-			_box(Vector3(-hx - 0.05, y, 0), Vector3(0.12, 2.0, D - 3.0), _glass, false)
+	# Curtain wall. Decoration only — the structural walls above carry collision.
+	_clad(true, -hz, W, 5, true)
+	_clad(true, hz, W, 5, true)
+	_clad(false, hx, D, 4, true)
+	_clad(false, -hx, D, 4, false)
+
+	# Louvred trellis over the north-west corner, as in the photo.
+	for i in 7:
+		_box(Vector3(-hx + 1.2 + i * 0.75, ROOF_Y + 1.5, -hz + 2.4), Vector3(0.12, 0.5, 5.4), _mat(Color("3c4247"), 0.6, 0.3), false)
+	_box(Vector3(-hx + 3.4, ROOF_Y + 1.0, -hz + 2.4), Vector3(5.6, 0.18, 5.6), _mat(Color("3c4247"), 0.6, 0.3), false)
+	for cx in [-hx + 0.9, -hx + 5.9]:
+		for cz in [-hz + 0.2, -hz + 4.8]:
+			_box(Vector3(cx, ROOF_Y + 0.7, cz), Vector3(0.22, 1.8, 0.22), _mat(Color("3c4247"), 0.6, 0.3), false)
 
 	var sign := Label3D.new()
 	sign.text = "NORTH POINT"
@@ -311,7 +358,7 @@ func _fit_lobby() -> void:
 		"lines": [
 			"Sales is on six. Elevator's by the stairs, or walk up if you like.",
 			"Fourth is operations. Nothing up there for you.",
-			"If Dana asks, you were here at nine.",
+			"If Ralph asks, you were here at nine.",
 		],
 	})
 
@@ -377,6 +424,18 @@ func _fit_sixth() -> void:
 		_box(Vector3(-11.8, y + 0.25, pz), Vector3(0.6, 0.5, 0.6), _mat(Color("8a5a44"), 0.8), true)
 		_box(Vector3(-11.8, y + 1.1, pz), Vector3(0.8, 1.2, 0.8), plant, false)
 
+	# Printer / copier bay.
+	_box(Vector3(-11.6, y + 0.55, -2.0), Vector3(0.9, 1.1, 1.4), _mat(Color("32373d"), 0.5), true)
+	_box(Vector3(-11.6, y + 1.16, -2.0), Vector3(0.95, 0.12, 1.45), _mat(Color("1b1f24"), 0.4), false)
+	# Filing cabinets along the back wall.
+	for fz in [-8.4, -7.0, 6.4, 7.8]:
+		_box(Vector3(-12.0, y + 0.62, fz), Vector3(0.7, 1.24, 1.1), _mat(Color("6a7078"), 0.5, 0.2), true)
+	# Coffee machine and mugs by the break table.
+	_box(Vector3(3.6, y + 1.05, 8.0), Vector3(0.5, 0.4, 0.45), _mat(Color("22262c"), 0.4), false)
+	# Standing whiteboard by the desks.
+	_box(Vector3(-6.0, y + 1.5, -9.0), Vector3(3.0, 1.4, 0.08), _mat(Color("f4f7fa"), 0.4), true)
+	_box(Vector3(-6.0, y + 0.4, -9.0), Vector3(0.1, 0.8, 0.1), _mat(Color("42484f"), 0.5), false)
+
 	_box(Vector3(0.0, y + 2.2, -10.6), Vector3(4.4, 1.6, 0.1), _mat(Color("f4f7fa"), 0.4), true)
 	var board := Label3D.new()
 	board.text = "Q3 QUOTA\n%d DEALS" % GameState.SALES_QUOTA
@@ -395,7 +454,7 @@ func _fit_sixth() -> void:
 
 	for spec in [
 		{
-			"name": "Dana — Floor Manager",
+			"name": "Ralph — Floor Manager",
 			"pos": Vector3(2.0, y, -6.0),
 			"shirt": Color("7b2d3b"),
 			"lines": [
@@ -405,7 +464,7 @@ func _fit_sixth() -> void:
 			],
 		},
 		{
-			"name": "Marcus — Senior Rep",
+			"name": "Ayden — Senior Rep",
 			"pos": Vector3(-6.2, y, 0.0),
 			"shirt": Color("1d3557"),
 			"lines": [
@@ -415,7 +474,17 @@ func _fit_sixth() -> void:
 			],
 		},
 		{
-			"name": "Priya — SDR",
+			"name": "Teddy — Sales Ops",
+			"pos": Vector3(2.0, y, 6.0),
+			"shirt": Color("55606d"),
+			"lines": [
+				"Convert the lead before you try to close it. The button's right there.",
+				"Probability isn't the stage. You can be at Negotiation and still be at thirty percent.",
+				"I clean up the pipeline every Friday. Don't make Friday worse.",
+			],
+		},
+		{
+			"name": "Fiona — SDR",
 			"pos": Vector3(-6.2, y, 5.0),
 			"shirt": Color("2a9d8f"),
 			"lines": [

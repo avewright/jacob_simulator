@@ -1,44 +1,59 @@
 extends CanvasLayer
 
-# Cold-call sim. A lead moves OPENING -> DISCOVERY -> PITCH -> CLOSE; each call
-# offers three replies and only one is right for the stage the lead is actually
-# in. Emails nudge interest but never advance the stage, and they sour after a
-# few. Closing rolls against interest, so pushing early genuinely loses leads.
+# Northwind CRM — a Salesforce-shaped console.
+#
+# A record starts as a Lead. Working it converts it to an Opportunity, which
+# then walks the standard stage ladder (Prospecting -> Qualification -> Needs
+# Analysis -> Proposal -> Negotiation -> Closed Won/Lost). Probability is
+# driven by how well you work it, not by the stage alone, and every call and
+# email is written to the activity timeline the way a real CRM would.
 
+const NAVY := Color("032d60")
+const BLUE := Color("0176d3")
 const GOLD := Color("ffb703")
-const BG := Color("0d1117")
-const PANEL := Color("161b22")
+const BG := Color("f3f3f3")
+const CARD := Color("ffffff")
+const INK := Color("181818")
+const MUTED := Color("5c5c5c")
 
-const STAGES := ["OPENING", "DISCOVERY", "PITCH", "CLOSE"]
-
-# Per stage: [text, quality] where quality is "good", "ok" or "bad".
+const STAGES := [
+	"Prospecting", "Qualification", "Needs Analysis",
+	"Proposal/Price Quote", "Negotiation/Review",
+]
+# Per stage: [what you say, quality] — only one reply fits the stage you're in.
 const SCRIPTS := [
 	[
-		["\"Hi, it's Jacob at North Point — did I catch you at an okay time?\"", "good"],
+		["\"Hi, it's Jacob at Northwind — did I catch you at an okay time?\"", "good"],
 		["\"Hi, I'll be quick, I know you're busy.\"", "ok"],
 		["\"Hi! Do you want to hear about our platform?\"", "bad"],
 	],
 	[
-		["\"How is your team handling renewals right now?\"", "good"],
-		["\"Are you the person who handles this?\"", "ok"],
+		["\"Are you the person who owns renewals, or is that someone else?\"", "good"],
+		["\"Roughly how big is the team touching this?\"", "ok"],
+		["\"What's your budget?\"", "bad"],
+	],
+	[
+		["\"Walk me through what breaks today when a renewal slips.\"", "good"],
+		["\"How are you tracking all this at the moment?\"", "ok"],
 		["\"We're cheaper than what you've got.\"", "bad"],
 	],
 	[
-		["\"Given the renewal mess — that's exactly the gap we close.\"", "good"],
-		["\"Here's what the product does, broadly.\"", "ok"],
+		["\"Given the slipped renewals — here's the number, and here's what it fixes.\"", "good"],
+		["\"I'll send over pricing and you can have a look.\"", "ok"],
 		["\"Everyone in your industry is buying this.\"", "bad"],
 	],
 	[
-		["\"Want me to send paperwork so you can start Monday?\"", "good"],
-		["\"Should we set up another call?\"", "ok"],
+		["\"If I can get legal to sign off this week, can you start Monday?\"", "good"],
+		["\"Should we set up another call to talk it through?\"", "ok"],
 		["\"So can I put you down for a yes or not?\"", "bad"],
 	],
 ]
 
 var _list: VBoxContainer
 var _detail: VBoxContainer
-var _log: RichTextLabel
+var _feed: RichTextLabel
 var _stats: Label
+var _pipeline: Label
 var _selected: int = -1
 
 
@@ -51,7 +66,7 @@ func _ready() -> void:
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	_build()
 	_refresh()
-	_say("Logged in. %d leads in the queue." % GameState.sales_leads.size())
+	_post("Logged in as jacob@northwind.com. %d records in your queue." % GameState.sales_leads.size())
 
 
 func _input(event: InputEvent) -> void:
@@ -67,82 +82,101 @@ func _close() -> void:
 	queue_free()
 
 
-# ---------------------------------------------------------------- actions
+# ---------------------------------------------------------------- record ops
 
-func _lead() -> Dictionary:
+func _rec() -> Dictionary:
 	if _selected < 0 or _selected >= GameState.sales_leads.size():
 		return {}
 	return GameState.sales_leads[_selected]
 
 
+func _on_convert() -> void:
+	var r := _rec()
+	if r.is_empty() or r.converted:
+		return
+	r.converted = true
+	GameState.sales_converted += 1
+	_post("[b]Lead converted.[/b] %s at %s is now an Opportunity — %s, %s."
+		% [r.contact, r.company, _money(r.value), STAGES[r.stage]])
+	_refresh()
+
+
 func _on_call() -> void:
-	var lead := _lead()
-	if lead.is_empty() or lead.status != "open":
+	var r := _rec()
+	if r.is_empty() or r.status != "open":
 		return
 	GameState.sales_calls += 1
-	_show_call(lead)
+	_show_call(r)
 
 
-func _on_reply(lead: Dictionary, quality: String) -> void:
+func _on_reply(r: Dictionary, quality: String) -> void:
 	match quality:
 		"good":
-			lead.interest = mini(100, lead.interest + 18)
-			lead.stage = mini(3, lead.stage + 1)
-			_say("[color=#7ddf90]Good read.[/color] %s warms up (+18) and moves to %s." % [lead.contact, STAGES[lead.stage]])
+			r.interest = mini(100, r.interest + 18)
+			var was: int = r.stage
+			r.stage = mini(STAGES.size() - 1, r.stage + 1)
+			_post("[color=#2e844a]Call logged — positive.[/color] %s warms up (+18)%s"
+				% [r.contact, "." if was == r.stage else ", stage moved to %s." % STAGES[r.stage]])
 		"ok":
-			lead.interest = mini(100, lead.interest + 6)
-			_say("%s is polite about it (+6). Still %s." % [lead.contact, STAGES[lead.stage]])
+			r.interest = mini(100, r.interest + 6)
+			_post("Call logged — neutral. %s is polite about it (+6). Still %s." % [r.contact, STAGES[r.stage]])
 		_:
-			lead.interest = maxi(0, lead.interest - 16)
-			_say("[color=#ff8a80]That landed badly.[/color] %s cools off (-16)." % lead.contact)
-			if lead.interest <= 0:
-				lead.status = "lost"
-				_say("[color=#ff8a80]%s at %s hung up for good.[/color]" % [lead.contact, lead.company])
+			r.interest = maxi(0, r.interest - 16)
+			_post("[color=#ba0517]Call logged — negative.[/color] %s cools off (-16)." % r.contact)
+			if r.interest <= 0:
+				r.status = "lost"
+				GameState.sales_lost += 1
+				_post("[color=#ba0517]Closed Lost — %s stopped taking your calls.[/color]" % r.company)
 	_refresh()
 
 
 func _on_email() -> void:
-	var lead := _lead()
-	if lead.is_empty() or lead.status != "open":
+	var r := _rec()
+	if r.is_empty() or r.status != "open":
 		return
 	GameState.sales_emails += 1
-	lead.emails += 1
-	if lead.emails > 3:
-		lead.interest = maxi(0, lead.interest - 8)
-		_say("[color=#ff8a80]Email %d to %s.[/color] You're in spam territory now (-8)." % [lead.emails, lead.contact])
+	r.emails += 1
+	if r.emails > 3:
+		r.interest = maxi(0, r.interest - 8)
+		_post("[color=#ba0517]Email logged (#%d).[/color] You're in spam territory now (-8)." % r.emails)
 	else:
-		var gain: int = maxi(3, 12 - (lead.emails - 1) * 4)
-		lead.interest = mini(100, lead.interest + gain)
-		_say("Sent follow-up %d to %s (+%d)." % [lead.emails, lead.contact, gain])
+		var gain: int = maxi(3, 12 - (r.emails - 1) * 4)
+		r.interest = mini(100, r.interest + gain)
+		_post("Email logged (#%d) to %s (+%d)." % [r.emails, r.contact, gain])
 	_refresh()
 
 
 func _on_close() -> void:
-	var lead := _lead()
-	if lead.is_empty() or lead.status != "open":
+	var r := _rec()
+	if r.is_empty() or r.status != "open":
 		return
-	if lead.stage < 3:
-		_say("[color=#ff8a80]Too early.[/color] Work %s up to CLOSE first." % lead.contact)
+	if not r.converted:
+		_post("[color=#ba0517]Convert the lead first.[/color] You can't close what isn't an Opportunity.")
 		return
-	if randi() % 100 < lead.interest:
-		lead.status = "won"
-		var commission: int = int(lead.value * 0.1)
+	if r.stage < STAGES.size() - 1:
+		_post("[color=#ba0517]Too early.[/color] %s is only at %s." % [r.contact, STAGES[r.stage]])
+		return
+	if randi() % 100 < r.interest:
+		r.status = "won"
+		var commission: int = int(r.value * 0.1)
 		GameState.add_money(commission)
 		GameState.sales_deals += 1
-		_say("[color=#7ddf90]CLOSED — %s, $%d.[/color] Commission $%d." % [lead.company, lead.value, commission])
+		_post("[color=#2e844a][b]Closed Won — %s, %s.[/b][/color] Commission %s."
+			% [r.company, _money(r.value), _money(commission)])
 		if GameState.sales_deals == GameState.SALES_QUOTA:
 			GameState.add_money(500)
 			GameState.mark_mission("sales_quota")
-			GameState.objective = "Quota hit. Dana owes you a coffee."
-			_say("[color=#ffb703]QUOTA HIT. $500 bonus.[/color]")
+			GameState.objective = "Quota hit. Ralph owes you a coffee."
+			_post("[color=#ffb703][b]QUOTA ATTAINED. $500 accelerator paid.[/b][/color]")
 	else:
-		lead.status = "lost"
-		_say("[color=#ff8a80]They passed.[/color] %s is dead at %d%% interest." % [lead.company, lead.interest])
+		r.status = "lost"
+		GameState.sales_lost += 1
+		_post("[color=#ba0517]Closed Lost — %s went another way at %d%%.[/color]" % [r.company, r.interest])
 	_selected = -1
 	_refresh()
 
 
-# ---------------------------------------------------------------- ui
+# ---------------------------------------------------------------- chrome
 
 func _build() -> void:
 	var bg := ColorRect.new()
@@ -152,37 +186,67 @@ func _build() -> void:
 
 	var root := VBoxContainer.new()
 	root.set_anchors_preset(Control.PRESET_FULL_RECT)
-	root.offset_left = 28
-	root.offset_right = -28
-	root.offset_top = 20
-	root.offset_bottom = -20
-	root.add_theme_constant_override("separation", 12)
+	root.add_theme_constant_override("separation", 0)
 	add_child(root)
 
-	var head := HBoxContainer.new()
-	root.add_child(head)
-	var title := Label.new()
-	title.text = "NORTH POINT  ·  SALES CONSOLE"
-	title.add_theme_font_size_override("font_size", 24)
-	title.add_theme_color_override("font_color", GOLD)
-	head.add_child(title)
+	# Global header bar.
+	var bar := PanelContainer.new()
+	var bar_sb := StyleBoxFlat.new()
+	bar_sb.bg_color = NAVY
+	bar_sb.content_margin_left = 20
+	bar_sb.content_margin_right = 20
+	bar_sb.content_margin_top = 10
+	bar_sb.content_margin_bottom = 10
+	bar.add_theme_stylebox_override("panel", bar_sb)
+	root.add_child(bar)
+
+	var bar_row := HBoxContainer.new()
+	bar_row.add_theme_constant_override("separation", 16)
+	bar.add_child(bar_row)
+
+	var cloud := Label.new()
+	cloud.text = "☁  Northwind CRM"
+	cloud.add_theme_font_size_override("font_size", 20)
+	cloud.add_theme_color_override("font_color", Color.WHITE)
+	bar_row.add_child(cloud)
+
+	var tab := Label.new()
+	tab.text = "Sales  ›  Leads & Opportunities"
+	tab.add_theme_color_override("font_color", Color("9fc6ea"))
+	bar_row.add_child(tab)
+
 	var pad := Control.new()
 	pad.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	head.add_child(pad)
+	bar_row.add_child(pad)
+
 	_stats = Label.new()
-	_stats.add_theme_color_override("font_color", Color("9aa4b2"))
-	head.add_child(_stats)
+	_stats.add_theme_color_override("font_color", Color("cde3f6"))
+	bar_row.add_child(_stats)
+
+	var inner := MarginContainer.new()
+	inner.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	inner.add_theme_constant_override("margin_left", 18)
+	inner.add_theme_constant_override("margin_right", 18)
+	inner.add_theme_constant_override("margin_top", 14)
+	inner.add_theme_constant_override("margin_bottom", 14)
+	root.add_child(inner)
+
+	var col := VBoxContainer.new()
+	col.add_theme_constant_override("separation", 12)
+	inner.add_child(col)
+
+	_pipeline = Label.new()
+	_pipeline.add_theme_font_size_override("font_size", 15)
+	_pipeline.add_theme_color_override("font_color", NAVY)
+	col.add_child(_pipeline)
 
 	var body := HBoxContainer.new()
 	body.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	body.add_theme_constant_override("separation", 12)
-	root.add_child(body)
+	col.add_child(body)
 
-	var left := _panel(body, 340)
-	var lead_head := Label.new()
-	lead_head.text = "PIPELINE"
-	lead_head.add_theme_color_override("font_color", GOLD)
-	left.add_child(lead_head)
+	var left := _card(body, 360)
+	left.add_child(_heading("MY PIPELINE"))
 	var scroll := ScrollContainer.new()
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	left.add_child(scroll)
@@ -191,31 +255,34 @@ func _build() -> void:
 	_list.add_theme_constant_override("separation", 6)
 	scroll.add_child(_list)
 
-	_detail = _panel(body, 0)
+	_detail = _card(body, 0)
 	_detail.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 
-	var bottom := _panel(root, 0)
+	var bottom := _card(col, 0)
 	bottom.custom_minimum_size = Vector2(0, 150)
-	_log = RichTextLabel.new()
-	_log.bbcode_enabled = true
-	_log.scroll_following = true
-	_log.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	_log.add_theme_color_override("default_color", Color("c9d1d9"))
-	bottom.add_child(_log)
+	bottom.add_child(_heading("ACTIVITY TIMELINE"))
+	_feed = RichTextLabel.new()
+	_feed.bbcode_enabled = true
+	_feed.scroll_following = true
+	_feed.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_feed.add_theme_color_override("default_color", INK)
+	bottom.add_child(_feed)
 
 	var quit := Button.new()
-	quit.text = "LEAVE DESK  (Esc)"
+	quit.text = "LOG OUT — back to the floor  (Esc)"
 	quit.custom_minimum_size = Vector2(0, 38)
 	quit.pressed.connect(_close)
-	root.add_child(quit)
+	col.add_child(quit)
 
 
-func _panel(parent: Control, min_w: float) -> VBoxContainer:
+func _card(parent: Control, min_w: float) -> VBoxContainer:
 	var wrap := PanelContainer.new()
 	var sb := StyleBoxFlat.new()
-	sb.bg_color = PANEL
-	sb.set_corner_radius_all(10)
-	sb.set_content_margin_all(12)
+	sb.bg_color = CARD
+	sb.set_corner_radius_all(8)
+	sb.set_content_margin_all(14)
+	sb.border_color = Color("dddbda")
+	sb.set_border_width_all(1)
 	wrap.add_theme_stylebox_override("panel", sb)
 	if min_w > 0.0:
 		wrap.custom_minimum_size = Vector2(min_w, 0)
@@ -226,25 +293,57 @@ func _panel(parent: Control, min_w: float) -> VBoxContainer:
 	return box
 
 
+func _heading(text: String) -> Label:
+	var l := Label.new()
+	l.text = text
+	l.add_theme_font_size_override("font_size", 12)
+	l.add_theme_color_override("font_color", MUTED)
+	return l
+
+
+func _money(v: int) -> String:
+	var s := str(v)
+	var out := ""
+	var c := 0
+	for i in range(s.length() - 1, -1, -1):
+		out = s[i] + out
+		c += 1
+		if c % 3 == 0 and i > 0:
+			out = "," + out
+	return "$" + out
+
+
 func _refresh() -> void:
-	_stats.text = "Calls %d    Emails %d    Closed %d / %d    Cash $%d" % [
+	var open_value := 0
+	var won_value := 0
+	for r in GameState.sales_leads:
+		if r.status == "open" and r.converted:
+			open_value += int(r.value)
+		elif r.status == "won":
+			won_value += int(r.value)
+	_stats.text = "Calls %d   Emails %d   Converted %d   Won %d / %d" % [
 		GameState.sales_calls, GameState.sales_emails,
-		GameState.sales_deals, GameState.SALES_QUOTA, GameState.money,
+		GameState.sales_converted, GameState.sales_deals, GameState.SALES_QUOTA,
 	]
+	_pipeline.text = "Open pipeline %s     Closed won %s     Commission earned %s" % [
+		_money(open_value), _money(won_value), _money(GameState.money),
+	]
+
 	for c in _list.get_children():
 		c.queue_free()
 	for i in GameState.sales_leads.size():
-		var lead: Dictionary = GameState.sales_leads[i]
+		var r: Dictionary = GameState.sales_leads[i]
 		var b := Button.new()
 		b.alignment = HORIZONTAL_ALIGNMENT_LEFT
-		b.custom_minimum_size = Vector2(0, 46)
-		var mark := ""
-		if lead.status == "won":
-			mark = "  ✓"
-		elif lead.status == "lost":
-			mark = "  ✗"
-		b.text = "%s\n%s · %d%%%s" % [lead.company, lead.contact, lead.interest, mark]
-		b.disabled = lead.status != "open"
+		b.custom_minimum_size = Vector2(0, 56)
+		var kind := "Opportunity" if r.converted else "Lead"
+		var tail := "%s · %d%%" % [STAGES[r.stage], r.interest]
+		if r.status == "won":
+			tail = "Closed Won ✓"
+		elif r.status == "lost":
+			tail = "Closed Lost ✗"
+		b.text = "%s — %s\n%s · %s · %s" % [r.company, r.contact, kind, _money(r.value), tail]
+		b.disabled = r.status != "open"
 		b.pressed.connect(_select.bind(i))
 		_list.add_child(b)
 	_show_detail()
@@ -258,82 +357,128 @@ func _select(i: int) -> void:
 func _show_detail() -> void:
 	for c in _detail.get_children():
 		c.queue_free()
-	var lead := _lead()
-	if lead.is_empty():
+	var r := _rec()
+	if r.is_empty():
+		_detail.add_child(_heading("RECORD"))
 		var hint := Label.new()
-		hint.text = "Pick a lead from the pipeline.\n\nCall to move them through the stages.\nEmail to warm them between calls.\nClose only once they reach CLOSE."
-		hint.add_theme_color_override("font_color", Color("8b949e"))
+		hint.text = "Pick a record from the pipeline.\n\nConvert a Lead to open it as an Opportunity.\nLog a Call to move it up the stage ladder.\nLog an Email to warm it between calls.\nClose it once it reaches Negotiation/Review."
+		hint.add_theme_color_override("font_color", MUTED)
 		_detail.add_child(hint)
 		return
 
-	var name_lab := Label.new()
-	name_lab.text = "%s — %s" % [lead.contact, lead.company]
-	name_lab.add_theme_font_size_override("font_size", 20)
-	name_lab.add_theme_color_override("font_color", GOLD)
-	_detail.add_child(name_lab)
+	_detail.add_child(_heading("OPPORTUNITY" if r.converted else "LEAD"))
 
-	var meta := Label.new()
-	meta.text = "Stage %s    Contract $%d    Emails sent %d" % [STAGES[lead.stage], lead.value, lead.emails]
-	meta.add_theme_color_override("font_color", Color("9aa4b2"))
-	_detail.add_child(meta)
+	var title := Label.new()
+	title.text = "%s — %s" % [r.company, r.contact]
+	title.add_theme_font_size_override("font_size", 21)
+	title.add_theme_color_override("font_color", NAVY)
+	_detail.add_child(title)
+
+	var grid := GridContainer.new()
+	grid.columns = 4
+	grid.add_theme_constant_override("h_separation", 18)
+	grid.add_theme_constant_override("v_separation", 5)
+	_detail.add_child(grid)
+	for pair in [
+		["Stage", STAGES[r.stage]],
+		["Amount", _money(r.value)],
+		["Probability", "%d%%" % r.interest],
+		["Close Date", r.close_date],
+		["Lead Source", r.source],
+		["Emails Sent", str(r.emails)],
+	]:
+		var k := Label.new()
+		k.text = pair[0]
+		k.add_theme_font_size_override("font_size", 12)
+		k.add_theme_color_override("font_color", MUTED)
+		grid.add_child(k)
+		var v := Label.new()
+		v.text = pair[1]
+		v.add_theme_color_override("font_color", INK)
+		grid.add_child(v)
+
+	# Stage path, the way the Lightning bar reads.
+	var path := HBoxContainer.new()
+	path.add_theme_constant_override("separation", 4)
+	_detail.add_child(path)
+	for i in STAGES.size():
+		var chip := PanelContainer.new()
+		var csb := StyleBoxFlat.new()
+		csb.bg_color = BLUE if i <= r.stage else Color("e5e5e5")
+		csb.set_corner_radius_all(4)
+		csb.set_content_margin_all(5)
+		chip.add_theme_stylebox_override("panel", csb)
+		chip.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		var cl := Label.new()
+		cl.text = STAGES[i].split("/")[0]
+		cl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		cl.add_theme_font_size_override("font_size", 11)
+		cl.add_theme_color_override("font_color", Color.WHITE if i <= r.stage else MUTED)
+		chip.add_child(cl)
+		path.add_child(chip)
 
 	var bar := ProgressBar.new()
 	bar.max_value = 100
-	bar.value = lead.interest
-	bar.custom_minimum_size = Vector2(0, 22)
+	bar.value = r.interest
+	bar.custom_minimum_size = Vector2(0, 20)
 	_detail.add_child(bar)
 
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 8)
 	_detail.add_child(row)
-	row.add_child(_action("CALL", _on_call))
-	row.add_child(_action("EMAIL", _on_email))
-	var close_btn := _action("CLOSE DEAL", _on_close)
-	close_btn.disabled = lead.stage < 3
+	if not r.converted:
+		row.add_child(_action("CONVERT LEAD", _on_convert))
+	row.add_child(_action("LOG A CALL", _on_call))
+	row.add_child(_action("LOG AN EMAIL", _on_email))
+	var close_btn := _action("CLOSE WON?", _on_close)
+	close_btn.disabled = not r.converted or r.stage < STAGES.size() - 1
 	row.add_child(close_btn)
 
 
-func _show_call(lead: Dictionary) -> void:
+func _show_call(r: Dictionary) -> void:
 	for c in _detail.get_children():
 		c.queue_free()
+	_detail.add_child(_heading("CALL IN PROGRESS · %s" % STAGES[r.stage].to_upper()))
+
 	var head := Label.new()
-	head.text = "CALLING %s — %s" % [lead.contact, STAGES[lead.stage]]
-	head.add_theme_font_size_override("font_size", 20)
-	head.add_theme_color_override("font_color", GOLD)
+	head.text = "%s — %s" % [r.contact, r.company]
+	head.add_theme_font_size_override("font_size", 21)
+	head.add_theme_color_override("font_color", NAVY)
 	_detail.add_child(head)
 
 	var prompt := Label.new()
-	prompt.text = "\"%s\"" % _greeting(lead)
+	prompt.text = "\"%s\"" % _greeting(r)
 	prompt.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	prompt.add_theme_color_override("font_color", Color("c9d1d9"))
+	prompt.add_theme_color_override("font_color", INK)
 	_detail.add_child(prompt)
 
-	var options: Array = SCRIPTS[lead.stage].duplicate()
+	var options: Array = SCRIPTS[r.stage].duplicate()
 	options.shuffle()
 	for opt in options:
 		var b := Button.new()
 		b.text = opt[0]
 		b.alignment = HORIZONTAL_ALIGNMENT_LEFT
 		b.custom_minimum_size = Vector2(0, 44)
-		b.pressed.connect(_on_reply.bind(lead, opt[1]))
+		b.pressed.connect(_on_reply.bind(r, opt[1]))
 		_detail.add_child(b)
 
 
-func _greeting(lead: Dictionary) -> String:
-	match lead.stage:
-		0: return "%s speaking." % lead.contact
+func _greeting(r: Dictionary) -> String:
+	match r.stage:
+		0: return "%s speaking." % r.contact
 		1: return "Alright, you've got a minute. What's this about?"
 		2: return "Okay — so what is it you actually sell?"
+		3: return "Right. What would this cost us?"
 		_: return "Look, I'm interested. What happens next?"
 
 
 func _action(text: String, cb: Callable) -> Button:
 	var b := Button.new()
 	b.text = text
-	b.custom_minimum_size = Vector2(120, 40)
+	b.custom_minimum_size = Vector2(130, 40)
 	b.pressed.connect(cb)
 	return b
 
 
-func _say(text: String) -> void:
-	_log.append_text(text + "\n")
+func _post(text: String) -> void:
+	_feed.append_text(text + "\n")
