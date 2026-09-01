@@ -12,8 +12,14 @@ var inspect: bool = false
 func _ready() -> void:
 	add_to_group("camera_rig")
 	arm.spring_length = distance
-	arm.collision_mask = 0
-	arm.margin = 0.2
+	# Collide with the world layer so the arm shortens instead of parking the
+	# camera on the far side of a wall. A small sphere rather than the default
+	# ray, so the camera stops before the lens clips through a corner.
+	arm.collision_mask = 1
+	arm.margin = 0.35
+	var probe := SphereShape3D.new()
+	probe.radius = 0.28
+	arm.shape = probe
 	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 	var start := _target()
 	if start:

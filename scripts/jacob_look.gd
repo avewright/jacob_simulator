@@ -10,8 +10,10 @@ const FACE_TEX := preload("res://assets/characters/jacob_face.png")
 @export var show_face := true
 ## Metres from the head bone: +Y up the skull, +Z out the front of the face.
 ## Nudge in the inspector if the photo lands high, low, or on the back of the head.
-@export var face_offset := Vector3(0.0, 0.045, 0.105)
-@export var face_size := Vector2(0.235, 0.3)
+@export var face_offset := Vector3(0.0, 0.06, 0.15)
+@export var face_size := Vector2(0.26, 0.33)
+## Prints the measured head-bone position once, to dial face_offset in.
+@export var face_debug := false
 
 var _actor: Node3D
 var _ap: AnimationPlayer
@@ -170,8 +172,11 @@ func _attach_face() -> void:
 	quad.size = face_size
 	var mat := StandardMaterial3D.new()
 	mat.albedo_texture = FACE_TEX
-	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	mat.alpha_scissor_threshold = 0.35
+	# ALPHA_SCISSOR, not ALPHA: alpha-blended materials skip the depth write and
+	# get sorted per-object, which is what buried the face inside the skull.
+	# Scissor renders it in the opaque pass so it occludes the head properly.
+	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA_SCISSOR
+	mat.alpha_scissor_threshold = 0.4
 	mat.cull_mode = BaseMaterial3D.CULL_DISABLED
 	mat.shading_mode = BaseMaterial3D.SHADING_MODE_PER_PIXEL
 	mat.roughness = 0.85
@@ -186,15 +191,22 @@ func _attach_face() -> void:
 	_face.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	add_child(_face)
 	_update_face()
+	if face_debug:
+		var bone := "none" if _head_bone < 0 else str(_head_bone)
+		print("[jacob_look] head bone=%s local=%s face=%s actor_scale=%s"
+			% [bone, _head_pos(), _face.position, _actor.scale])
+
+
+func _head_pos() -> Vector3:
+	if _skel and _head_bone >= 0:
+		return to_local((_skel.global_transform * _skel.get_bone_global_pose(_head_bone)).origin)
+	return Vector3(0.0, 1.62, 0.0)
 
 
 func _update_face() -> void:
 	if _face == null:
 		return
-	var head := Vector3(0.0, 1.62, 0.0)
-	if _skel and _head_bone >= 0:
-		head = to_local((_skel.global_transform * _skel.get_bone_global_pose(_head_bone)).origin)
-	_face.position = head + face_offset
+	_face.position = _head_pos() + face_offset
 	_face.rotation = Vector3.ZERO
 
 

@@ -310,6 +310,9 @@ func _blocked(x: float, z: float) -> bool:
 	# Parking garage plot.
 	if x > 30.0 and x < 62.0 and z > 16.0 and z < 40.0:
 		return true
+	# 5955 Haterleigh Dr and its lot.
+	if x > 44.0 and x < 84.0 and z > 56.0 and z < 96.0:
+		return true
 	return false
 
 
