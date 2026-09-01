@@ -142,7 +142,7 @@ func _build() -> void:
 	_prompt.add_theme_color_override("font_color", GOLD)
 	add_child(_prompt)
 
-	help.text = "WASD move / drive   Mouse steers\nShift sprint  Space jump / handbrake\nE Camry / clothes / arcade   R new Camry   Esc pause"
+	help.text = "WASD move / drive   Mouse steers\nShift sprint  Space jump / handbrake  Q wave\nE Camry / clothes / arcade   R new Camry   Esc pause"
 	help.add_theme_font_size_override("font_size", 13)
 	help.add_theme_color_override("font_color", Color(0.85, 0.85, 0.85, 0.85))
 	add_child(help)

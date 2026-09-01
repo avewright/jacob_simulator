@@ -108,6 +108,7 @@ func _bind_input() -> void:
 	_action("kick", [KEY_J])
 	_action("punch", [KEY_K, KEY_F])
 	_action("slam", [KEY_L, KEY_SPACE])
+	_action("wave", [KEY_Q])
 
 
 func _action(action: String, keys: Array) -> void:

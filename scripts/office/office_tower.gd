@@ -104,21 +104,45 @@ func _make_mats() -> void:
 
 ## Clads one elevation. `ns` true means the face lies in the XY plane at
 ## z = out_v; false means the YZ plane at x = out_v.
-func _clad(ns: bool, out_v: float, length: float, bays: int, storefront: bool) -> void:
+## `door_half` reserves a gap of that half-width at u = 0 across the whole
+## ground band, so nothing is drawn over the entrance.
+func _clad(ns: bool, out_v: float, length: float, bays: int, storefront: bool, door_half: float = 0.0) -> void:
 	var away := signf(out_v)
 	var half := length * 0.5
 	var step := length / float(bays)
+	var sill := DOOR_H + 0.5
 
 	# Recessed glass field behind the piers.
-	_face_box(ns, 0.0, ROOF_Y * 0.5 + 0.3, out_v + away * 0.02, length - 0.6, ROOF_Y - 0.6, 0.18, _curtain)
-	# Precast piers.
+	if door_half <= 0.0:
+		_face_box(ns, 0.0, ROOF_Y * 0.5 + 0.3, out_v + away * 0.02, length - 0.6, ROOF_Y - 0.6, 0.18, _curtain)
+	else:
+		# Above the entrance, then two flanking panels beside it.
+		_face_box(ns, 0.0, (sill + ROOF_Y - 0.3) * 0.5, out_v + away * 0.02, length - 0.6, ROOF_Y - 0.3 - sill, 0.18, _curtain)
+		var side := (half - 0.3 - door_half) * 0.5
+		for dir in [-1.0, 1.0]:
+			_face_box(ns, dir * (door_half + side), sill * 0.5, out_v + away * 0.02, side * 2.0, sill, 0.18, _curtain)
+
+	# Precast piers, skipping any that would land across the doorway.
 	for i in range(bays + 1):
 		var u := -half + i * step
+		if door_half > 0.0 and absf(u) < door_half + 0.75:
+			_face_box(ns, u, (sill + ROOF_Y) * 0.5, out_v + away * 0.16, 1.5, ROOF_Y - sill, 0.34, _stone)
+			continue
 		_face_box(ns, u, ROOF_Y * 0.5, out_v + away * 0.16, 1.5, ROOF_Y, 0.34, _stone)
+
 	# Spandrel band at each floor line, plus one at the parapet.
 	for f in FLOORS:
+		if door_half > 0.0 and f.y < sill:
+			continue
 		_face_box(ns, 0.0, f.y - 0.35, out_v + away * 0.1, length - 3.4, 0.9, 0.26, _spandrel)
 	_face_box(ns, 0.0, ROOF_Y - 1.1, out_v + away * 0.1, length - 3.4, 0.9, 0.26, _spandrel)
+
+	if door_half > 0.0:
+		# Entrance surround so the way in reads at a glance.
+		_face_box(ns, 0.0, sill + 0.25, out_v + away * 0.3, door_half * 2.0 + 1.2, 0.5, 0.5, _trim)
+		for dir in [-1.0, 1.0]:
+			_face_box(ns, dir * (door_half + 0.3), sill * 0.5, out_v + away * 0.3, 0.6, sill, 0.5, _trim)
+		_face_box(ns, 0.0, sill + 1.1, out_v + away * 0.95, door_half * 2.0 + 2.2, 0.22, 1.9, _stone)
 
 	if storefront:
 		# Taller, clearer glazing at street level with a canopy over it.
@@ -152,7 +176,7 @@ func _build_shell() -> void:
 	_clad(true, -hz, W, 5, true)
 	_clad(true, hz, W, 5, true)
 	_clad(false, hx, D, 4, true)
-	_clad(false, -hx, D, 4, false)
+	_clad(false, -hx, D, 4, false, DOOR_W * 0.5 + 0.35)
 
 	# Louvred trellis over the north-west corner, as in the photo.
 	for i in 7:
@@ -352,7 +376,7 @@ func _fit_lobby() -> void:
 	add_child(dir)
 
 	_npc({
-		"name": "Rosa — Front Desk",
+		"name": "Myriam — Front Desk",
 		"pos": Vector3(-4.8, y, 0),
 		"shirt": Color("4a5568"),
 		"lines": [
@@ -464,7 +488,7 @@ func _fit_sixth() -> void:
 			],
 		},
 		{
-			"name": "Ayden — Senior Rep",
+			"name": "Ayden — Senior SDR",
 			"pos": Vector3(-6.2, y, 0.0),
 			"shirt": Color("1d3557"),
 			"lines": [

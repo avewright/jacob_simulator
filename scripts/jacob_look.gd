@@ -20,6 +20,8 @@ var _ap: AnimationPlayer
 var _current := ""
 var _clip_map: Dictionary = {}
 var _face: MeshInstance3D
+var _arm_bone: int = -1
+var _arm_rest: Transform3D
 var _skel: Skeleton3D
 var _head_bone: int = -1
 
@@ -79,6 +81,18 @@ func animate(vel: Vector3, on_floor: bool, sprinting: bool, moving: bool, delta:
 
 func _process(_delta: float) -> void:
 	_update_face()
+
+
+## Raise and swing the right arm. `lift` is radians up from rest, `swing` is
+## the side-to-side wobble. Zero for both puts the arm back on its rest pose.
+func wave_arm(lift: float, swing: float) -> void:
+	if _skel == null or _arm_bone < 0:
+		return
+	if lift <= 0.001 and absf(swing) <= 0.001:
+		_skel.set_bone_pose_rotation(_arm_bone, _arm_rest.basis.get_rotation_quaternion())
+		return
+	var turn := Quaternion(Vector3.FORWARD, -lift) * Quaternion(Vector3.RIGHT, swing)
+	_skel.set_bone_pose_rotation(_arm_bone, _arm_rest.basis.get_rotation_quaternion() * turn)
 
 
 func set_clothed(_has: bool) -> void:
@@ -167,6 +181,11 @@ func _attach_face() -> void:
 	_skel = _find_skeleton(_actor)
 	if _skel:
 		_head_bone = _skel.find_bone("Head")
+		for candidate in ["UpperArm.R", "RightArm", "Arm.R", "Shoulder.R", "UpperArmR"]:
+			_arm_bone = _skel.find_bone(candidate)
+			if _arm_bone >= 0:
+				_arm_rest = _skel.get_bone_pose(_arm_bone)
+				break
 
 	var quad := QuadMesh.new()
 	quad.size = face_size

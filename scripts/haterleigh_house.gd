@@ -130,17 +130,25 @@ func _build_envelope() -> void:
 	_box(Vector3(3.0, (DOOR_H + 4.6) * 0.5, 1.2), Vector3(T, 4.6 - DOOR_H, 2.0), _wall_in, true)
 	_box(Vector3(3.0, 2.3, -0.6), Vector3(T, 4.6, 1.6), _wall_in, true)
 
-	# Cladding skins so the outside still reads as siding and brick.
-	_skin(Vector3(-3.0, H2 * 0.5, -5.2), Vector3(12.4, H2, 0.16), _siding)
+	# Cladding skins so the outside still reads as siding and brick. The front
+	# and garage faces are split around their openings — a solid skin here is
+	# what was hiding both doors.
+	_skin(Vector3(-4.65, H2 * 0.5, -5.2), Vector3(9.1, H2, 0.16), _siding)
+	_skin(Vector3(2.35, H2 * 0.5, -5.2), Vector3(1.3, H2, 0.16), _siding)
+	_skin(Vector3(0.9, (DOOR_H + 0.35 + H2) * 0.5, -5.2), Vector3(2.4, H2 - DOOR_H - 0.35, 0.16), _siding)
 	_skin(Vector3(-3.0, H2 * 0.5, 5.2), Vector3(12.4, H2, 0.16), _siding)
 	_skin(Vector3(-9.2, H2 * 0.5, 0.0), Vector3(0.16, H2, 10.4), _siding)
-	_skin(Vector3(7.0, 2.3, -3.2), Vector3(8.4, 4.6, 0.16), _brick)
+	_skin(Vector3(3.1, 2.3, -3.2), Vector3(0.6, 4.6, 0.16), _brick)
+	_skin(Vector3(10.9, 2.3, -3.2), Vector3(0.6, 4.6, 0.16), _brick)
+	_skin(Vector3(7.0, (GARAGE_H + 0.25 + 4.6) * 0.5, -3.2), Vector3(7.6, 4.6 - GARAGE_H - 0.25, 0.16), _brick)
 	_skin(Vector3(7.0, 2.3, 5.2), Vector3(8.4, 4.6, 0.16), _brick)
 	_skin(Vector3(11.2, 2.3, 1.0), Vector3(0.16, 4.6, 8.4), _brick)
 	_skin(Vector3(-3.0, 0.35, -5.3), Vector3(12.4, 0.7, 0.14), _brick)
 
-	# Entry gable projection, and the chimney.
-	_box(Vector3(1.0, H2 * 0.5, -5.7), Vector3(4.4, H2, 1.2), _siding, false)
+	# Entry gable projection, hollowed around the doorway.
+	_box(Vector3(-0.75, H2 * 0.5, -5.7), Vector3(0.9, H2, 1.2), _siding, true)
+	_box(Vector3(2.55, H2 * 0.5, -5.7), Vector3(0.9, H2, 1.2), _siding, true)
+	_box(Vector3(0.9, (DOOR_H + 0.35 + H2) * 0.5, -5.7), Vector3(2.4, H2 - DOOR_H - 0.35, 1.2), _siding, true)
 	_box(Vector3(10.2, 4.6, 3.0), Vector3(1.3, 9.2, 1.3), _brick, true)
 	_box(Vector3(10.2, 9.35, 3.0), Vector3(1.6, 0.3, 1.6), _mat(Color("6d6a63"), 0.9), false)
 
@@ -164,7 +172,7 @@ func _build_roofs() -> void:
 	_slope_z(-3.0, 12.8, 0.0, 5.6, RIDGE, H2, _roof)
 	_slope_x(-6.5, 3.0, 1.0, -1.4, 7.9, H2 - 0.2, _roof)
 	_slope_x(-6.5, 3.0, 1.0, 3.4, 7.9, H2 - 0.2, _roof)
-	_box(Vector3(1.0, (H2 + 7.9) * 0.5 - 0.1, -6.4), Vector3(4.6, 1.7, 0.14), _siding, false)
+	_box(Vector3(0.9, (H2 + 7.9) * 0.5 - 0.1, -6.4), Vector3(4.6, 1.7, 0.14), _siding, false)
 	_disc(Vector3(1.0, H2 + 0.75, -6.5), 0.42, _trim)
 
 	_slope_z(7.0, 8.8, 1.0, -4.8, 6.9, 4.6, _roof)
@@ -177,7 +185,11 @@ func _build_roofs() -> void:
 
 func _build_doors() -> void:
 	# Front door — slides aside as you walk up.
-	_front_door = _slider(Vector3(0.9, DOOR_H * 0.5, -5.0), Vector3(DOOR_W, DOOR_H, 0.12), _door_mat)
+	# Door surround, then the leaf itself sitting proud in the opening.
+	for sx in [-0.82, 0.82]:
+		_box(Vector3(0.9 + sx, DOOR_H * 0.5, -5.24), Vector3(0.24, DOOR_H + 0.24, 0.14), _trim, false)
+	_box(Vector3(0.9, DOOR_H + 0.12, -5.24), Vector3(1.88, 0.24, 0.14), _trim, false)
+	_front_door = _slider(Vector3(0.9, DOOR_H * 0.5, -5.18), Vector3(DOOR_W, DOOR_H, 0.12), _door_mat)
 	var knob := MeshInstance3D.new()
 	var s := SphereMesh.new()
 	s.radius = 0.05
@@ -189,7 +201,10 @@ func _build_doors() -> void:
 	_front_door.add_child(knob)
 
 	# Garage door — rolls up when you pull in.
-	_garage_door = _slider(Vector3(7.0, GARAGE_H * 0.5, -3.0), Vector3(GARAGE_W, GARAGE_H, 0.12), _trim)
+	for sx in [-3.75, 3.75]:
+		_box(Vector3(7.0 + sx, GARAGE_H * 0.5, -3.24), Vector3(0.3, GARAGE_H + 0.3, 0.14), _trim, false)
+	_box(Vector3(7.0, GARAGE_H + 0.15, -3.24), Vector3(7.8, 0.3, 0.14), _trim, false)
+	_garage_door = _slider(Vector3(7.0, GARAGE_H * 0.5, -3.18), Vector3(GARAGE_W, GARAGE_H, 0.12), _trim)
 	for r in 4:
 		var panel := MeshInstance3D.new()
 		var pb := BoxMesh.new()

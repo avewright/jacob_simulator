@@ -11,7 +11,8 @@ func _ready() -> void:
 func in_range(who: Node3D) -> bool:
 	if who == null:
 		return false
-	# Ignore Y so a fall or a curb never blocks the prompt.
+	if absf(who.global_position.y - global_position.y) > 3.0:
+		return false
 	var flat := Vector2(global_position.x - who.global_position.x, global_position.z - who.global_position.z)
 	return flat.length() < RANGE
 

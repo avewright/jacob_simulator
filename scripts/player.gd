@@ -8,6 +8,13 @@ const JUMP_VELOCITY := 5.0
 const TURN_SPEED := 7.2
 const KNOCK_TIME := 2.4
 const GETUP_AT := 0.9
+const WAVE_TIME := 1.6
+const HELLOS := [
+	preload("res://assets/audio/voice/hi_1.wav"),
+	preload("res://assets/audio/voice/hi_2.wav"),
+	preload("res://assets/audio/voice/hi_3.wav"),
+]
+const OW := preload("res://assets/audio/voice/hit.wav")
 
 @onready var visuals: JacobLook = $Visuals
 
@@ -15,6 +22,8 @@ var _gravity: float = ProjectSettings.get_setting("physics/3d/default_gravity")
 var _cam: Node3D
 var _knocked: float = 0.0
 var _roll: float = 0.0
+var _wave: float = 0.0
+var _voice: AudioStreamPlayer3D
 
 
 func _ready() -> void:
@@ -23,6 +32,10 @@ func _ready() -> void:
 	floor_max_angle = deg_to_rad(50.0)
 	if GameState.load_from_save:
 		global_position = GameState.saved_player
+	_voice = AudioStreamPlayer3D.new()
+	_voice.volume_db = 2.0
+	_voice.max_distance = 30.0
+	add_child(_voice)
 	_set_on_foot(true)
 	visuals.set_clothed(GameState.has_clothes)
 	GameState.clothes_changed.connect(visuals.set_clothed)
@@ -57,6 +70,9 @@ func _physics_process(delta: float) -> void:
 	if global_position.y < -8.0:
 		_recover()
 	visuals.animate(velocity, is_on_floor(), sprinting, wish.length_squared() > 0.001, delta)
+	_tick_wave(delta)
+	if Input.is_action_just_pressed("wave"):
+		_start_wave()
 	_update_prompt()
 	if Input.is_action_just_pressed("interact"):
 		if _arcade_in_range():
@@ -81,6 +97,34 @@ func _physics_process(delta: float) -> void:
 			missions.try_interact()
 
 
+func _start_wave() -> void:
+	if _wave > 0.0 or _knocked > 0.0:
+		return
+	_wave = WAVE_TIME
+	_say(HELLOS[randi() % HELLOS.size()])
+
+
+func _tick_wave(delta: float) -> void:
+	if _wave <= 0.0:
+		return
+	_wave -= delta
+	# BusinessMan only ships Idle/Walk/Run, so the wave is driven on the arm
+	# bone directly rather than through an animation clip.
+	var t := 1.0 - (_wave / WAVE_TIME)
+	var swing := sin(t * PI * 3.0) * 0.5
+	visuals.wave_arm(clampf(sin(t * PI) * 2.6, 0.0, 2.6), swing)
+	if _wave <= 0.0:
+		_wave = 0.0
+		visuals.wave_arm(0.0, 0.0)
+
+
+func _say(stream: AudioStream) -> void:
+	if _voice == null:
+		return
+	_voice.stream = stream
+	_voice.play()
+
+
 func hit_by_car(forward: Vector3, speed: float) -> void:
 	if _knocked > 0.0 or GameState.in_car:
 		return
@@ -89,7 +133,10 @@ func hit_by_car(forward: Vector3, speed: float) -> void:
 		push = -visuals.global_transform.basis.z
 	push = push.normalized()
 	_knocked = KNOCK_TIME
+	_wave = 0.0
+	visuals.wave_arm(0.0, 0.0)
 	_roll = randf_range(-2.2, 2.2)
+	_say(OW)
 	velocity = push * clampf(speed * 0.85, 7.0, 17.0) + Vector3.UP * 5.4
 	GameState.prompt = ""
 	GameState.notice.emit("Hit by a car!")
