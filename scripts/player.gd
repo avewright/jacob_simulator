@@ -54,6 +54,8 @@ func _physics_process(delta: float) -> void:
 	move_and_slide()
 	global_position.x = clampf(global_position.x, -360.0, 360.0)
 	global_position.z = clampf(global_position.z, -360.0, 360.0)
+	if global_position.y < -8.0:
+		_recover()
 	visuals.animate(velocity, is_on_floor(), sprinting, wish.length_squared() > 0.001, delta)
 	_update_prompt()
 	if Input.is_action_just_pressed("interact"):
@@ -67,6 +69,10 @@ func _physics_process(delta: float) -> void:
 		var mate := _near("office_npc")
 		if mate:
 			mate.talk()
+			return
+		var lift := _near("elevator")
+		if lift:
+			lift.open()
 			return
 		if _try_enter_car():
 			return
@@ -113,6 +119,13 @@ func _process_knockdown(delta: float) -> void:
 		_knocked = 0.0
 		visuals.rotation.x = 0.0
 		visuals.rotation.z = 0.0
+
+
+func _recover() -> void:
+	# Fell out of the world. Put him back on the pavement rather than forever.
+	global_position = Vector3(16.0, 0.5, 3.2)
+	velocity = Vector3.ZERO
+	GameState.notice.emit("Whoa. Back on solid ground.")
 
 
 func _camera_rig() -> Node3D:
@@ -164,6 +177,9 @@ func _update_prompt() -> void:
 	var mate := _near("office_npc")
 	if mate:
 		GameState.prompt = "E  Talk to %s" % String(mate.npc_name).split(" —")[0]
+		return
+	if _near("elevator"):
+		GameState.prompt = "E  Elevator"
 		return
 	GameState.prompt = ""
 

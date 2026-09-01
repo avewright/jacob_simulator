@@ -214,51 +214,9 @@ func _work_campus() -> void:
 			var x := 10.0 + row * 8.0
 			_mesh_box(Vector3(x, 0.09, z), Vector3(5.2, 0.02, 0.08), _paint)
 			_mesh_box(Vector3(x, 0.09, z + 2.6), Vector3(5.2, 0.02, 0.08), _paint)
-	_hedge(Vector3(18, 0, -16.2), Vector3(26, 1.1, 0.5))
-	_hedge(Vector3(18, 0, 16.2), Vector3(26, 1.1, 0.5))
-	_build_office(Vector3(42, 0, 0))
-	_sign(Vector3(30.5, 3.4, 0), "WORK\nNORTH POINT")
-
-
-func _build_office(origin: Vector3) -> void:
-	var w := 22.0
-	var d := 16.0
-	var h := 7.4
-	var t := 0.45
-	var door_w := 2.8
-	var door_h := 2.7
-	_static_box_raw(origin + Vector3(0, 0, 0), Vector3(w, 0.2, d), _carpet)
-	_static_box_raw(origin + Vector3(0, h, 0), Vector3(w + 0.8, 0.35, d + 0.8), _roof_mat)
-	_wall(origin + Vector3(0, 0, -d * 0.5), Vector3(w, h, t))
-	_wall(origin + Vector3(0, 0, d * 0.5), Vector3(w, h, t))
-	_wall(origin + Vector3(w * 0.5, 0, 0), Vector3(t, h, d))
-	var west := origin.x - w * 0.5
-	var half := d * 0.5
-	var gap := door_w * 0.5
-	var seg := half - gap
-	_wall(Vector3(west, 0, origin.z - (half + gap) * 0.5), Vector3(t, h, seg))
-	_wall(Vector3(west, 0, origin.z + (half + gap) * 0.5), Vector3(t, h, seg))
-	_wall(Vector3(west, door_h, origin.z), Vector3(t, h - door_h, door_w + 0.2))
-	_mesh_box(Vector3(west - 0.22, 1.35, origin.z - door_w * 0.5 - 0.08), Vector3(0.12, 2.7, 0.12), _mat(Color("c9a227"), 0.4, 0.2))
-	_mesh_box(Vector3(west - 0.22, 1.35, origin.z + door_w * 0.5 + 0.08), Vector3(0.12, 2.7, 0.12), _mat(Color("c9a227"), 0.4, 0.2))
-	_mesh_box(Vector3(west - 0.22, 2.75, origin.z), Vector3(0.12, 0.12, door_w + 0.28), _mat(Color("c9a227"), 0.4, 0.2))
-	_static_box_raw(origin + Vector3(4.2, 0, -3.5), Vector3(3.2, 0.85, 1.4), _desk)
-	_static_box_raw(origin + Vector3(4.2, 0, 3.2), Vector3(3.2, 0.85, 1.4), _desk)
-	_static_box_raw(origin + Vector3(-3.5, 0, 4.4), Vector3(1.4, 1.1, 3.0), _mat(Color("4a5560"), 0.5))
-	var lamp := OmniLight3D.new()
-	lamp.position = origin + Vector3(0, 5.6, 0)
-	lamp.light_energy = 1.8
-	lamp.omni_range = 16.0
-	lamp.light_color = Color("fff4dd")
-	add_child(lamp)
-	var welcome := Label3D.new()
-	welcome.text = "NORTH POINT  •  SALES FLOOR"
-	welcome.position = origin + Vector3(-8.6, 3.4, 0)
-	welcome.font_size = 64
-	welcome.modulate = Color("ffb703")
-	welcome.billboard = BaseMaterial3D.BILLBOARD_ENABLED
-	add_child(welcome)
-	_buildings.append({"x": origin.x, "z": origin.z, "w": w, "d": d})
+	# Office tower and garage are their own scenes; just reserve their plots
+	# and point at the door.
+	_sign(Vector3(31.0, 3.4, 0), "WORK\nNORTH POINT")
 
 
 func _wall(pos: Vector3, size: Vector3) -> void:
@@ -345,6 +303,12 @@ func _blocked(x: float, z: float) -> bool:
 		return true
 	# Super Strikers arcade plot.
 	if x > 14.0 and x < 48.0 and z > -40.0 and z < -20.0:
+		return true
+	# North Point tower plot.
+	if x > 30.0 and x < 62.0 and absf(z) < 14.0:
+		return true
+	# Parking garage plot.
+	if x > 30.0 and x < 62.0 and z > 16.0 and z < 40.0:
 		return true
 	return false
 

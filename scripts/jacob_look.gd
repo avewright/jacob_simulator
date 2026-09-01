@@ -5,12 +5,13 @@ const CIVILIAN := preload("res://assets/characters/BusinessMan.glb")
 const SOLDIER := preload("res://assets/characters/Soldier.glb")
 const FACE_TEX := preload("res://assets/characters/jacob_face.png")
 
-@export var team_tint := Color(0.22, 0.38, 0.58)
+## Royal blue, matched to the polo in the reference photo.
+@export var team_tint := Color("1c6fc9")
 @export var show_face := true
 ## Metres from the head bone: +Y up the skull, +Z out the front of the face.
 ## Nudge in the inspector if the photo lands high, low, or on the back of the head.
-@export var face_offset := Vector3(0.0, 0.055, 0.1)
-@export var face_size := Vector2(0.2, 0.26)
+@export var face_offset := Vector3(0.0, 0.045, 0.105)
+@export var face_size := Vector2(0.235, 0.3)
 
 var _actor: Node3D
 var _ap: AnimationPlayer

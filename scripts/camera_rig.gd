@@ -70,6 +70,16 @@ func _physics_process(delta: float) -> void:
 	arm.rotation.x = -pitch
 
 
+## Jump the rig straight to its target — used after a teleport so the camera
+## does not sail through the building catching up.
+func snap_to_target() -> void:
+	var t := _target()
+	if t == null:
+		return
+	global_position = t.global_position + Vector3(0.0, 1.5, 0.0)
+	reset_physics_interpolation()
+
+
 func _target() -> Node3D:
 	if GameState.in_car:
 		return get_tree().get_first_node_in_group("camry") as Node3D
