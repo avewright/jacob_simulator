@@ -3,7 +3,7 @@ extends Node3D
 # A place where a minigame will eventually live. Holds the interaction so the
 # spot is discoverable now; swap `use()` for the real launch later.
 
-const RANGE := 3.4
+const RANGE := 4.5
 
 const GAMES := {
 	"foosball": "res://scenes/games/foosball.tscn",

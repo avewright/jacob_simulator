@@ -115,15 +115,15 @@ func _tick(delta: float) -> void:
 
 	_figures(delta)
 
-	# Rods only reach 50 px and sit 109 px apart, so a ball that stops midway
-	# is stuck forever. Put it back after a couple of seconds.
-	if _vel.length() < 26.0:
+	# Only rescue a ball that has actually died somewhere no rod can poke it —
+	# roughly a fifth of the table. A slow ball beside a figure is still in play.
+	if _vel.length() < 26.0 and not _reachable():
 		_stall += delta
 		if _stall >= STALL:
 			_stall = 0.0
 			_ball = Vector2(W * 0.5, H * 0.5)
 			_vel = Vector2(randf_range(-1.0, 1.0), randf_range(-1.0, 1.0)).normalized() * 320.0
-			_msg.text = "Loose ball — back to centre."
+			_msg.text = "Dead ball — back to centre."
 	else:
 		_stall = 0.0
 
@@ -144,6 +144,24 @@ func _tick(delta: float) -> void:
 
 	if _vel.length() > MAX_SPEED:
 		_vel = _vel.normalized() * MAX_SPEED
+
+
+## Could any rod reach the ball if it slid to meet it? Rods move freely in y,
+## so in practice this comes down to the gaps in x between them and the dead
+## zones behind each goal.
+func _reachable() -> bool:
+	var grab: float = FIG_R + BALL_R + REACH
+	for rod in RODS:
+		var rx: float = W * float(rod[0])
+		if absf(_ball.x - rx) > grab:
+			continue
+		var count: int = int(rod[1])
+		var reach_y: float = _travel(count) + grab
+		for f in count:
+			var base: float = H * (f + 1) / float(count + 1)
+			if absf(_ball.y - base) <= reach_y:
+				return true
+	return false
 
 
 ## How far an n-man rod may slide before its outer figure leaves the table.

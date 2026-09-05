@@ -90,14 +90,6 @@ func _court(cx: float) -> void:
 		_box(Vector3(x, h * 0.5, 0), Vector3(span / segs + 0.02, h, 0.05), _mesh_m, i == segs / 2)
 		_box(Vector3(x, h - 0.03, 0), Vector3(span / segs + 0.02, 0.07, 0.07), _line, false)
 
-	var marker := Node3D.new()
-	marker.name = "CourtSpot"
-	marker.position = Vector3(cx, 0, -hl - 1.6)
-	marker.add_to_group("activity")
-	marker.set_script(load("res://scripts/activity_spot.gd"))
-	add_child(marker)
-	marker.setup("tennis", "E  Play tennis", "The nets are up, but nobody's here to rally with yet.")
-
 
 func _line_box(at: Vector2, size: Vector2) -> void:
 	_box(Vector3(at.x, 0.022, at.y), Vector3(size.x, 0.012, size.y), _line, false)
@@ -118,9 +110,13 @@ func _fence() -> void:
 		for dir in [-1.0, 1.0]:
 			_box(Vector3(dx, FENCE_H * 0.5, dir * (1.5 + seg * 0.5)), Vector3(0.08, FENCE_H, seg), _mesh_m, true)
 		_box(Vector3(dx, FENCE_H, 0), Vector3(0.14, 0.1, d), _post, false)
+	# Posts, skipping the middle of each long side — that is the gateway.
 	for px in [-hw, hw]:
-		for pz in [-hd, -hd * 0.5, 0.0, hd * 0.5, hd]:
+		for pz in [-hd, -hd * 0.55, hd * 0.55, hd]:
 			_box(Vector3(px, FENCE_H * 0.5, pz), Vector3(0.14, FENCE_H, 0.14), _post, false)
+		# Gate jambs either side of the opening.
+		for pz in [-1.6, 1.6]:
+			_box(Vector3(px, FENCE_H * 0.5, pz), Vector3(0.18, FENCE_H, 0.18), _post, false)
 
 
 func _furniture() -> void:
@@ -143,6 +139,47 @@ func _furniture() -> void:
 			lamp.omni_range = 26.0
 			lamp.shadow_enabled = false
 			add_child(lamp)
+
+	# One play spot, dead centre between the courts and in line with both gates,
+	# so walking in through either one puts you on it.
+	var pad := MeshInstance3D.new()
+	var disc := CylinderMesh.new()
+	disc.top_radius = 2.2
+	disc.bottom_radius = 2.2
+	disc.height = 0.04
+	pad.mesh = disc
+	pad.material_override = _mat(Color("ffb703"), 0.6)
+	pad.position = Vector3(0, 0.03, 0)
+	add_child(pad)
+
+	var marker := Node3D.new()
+	marker.name = "CourtSpot"
+	marker.add_to_group("activity")
+	marker.set_script(load("res://scripts/activity_spot.gd"))
+	add_child(marker)
+	marker.setup("tennis", "E  Play tennis", "Courts are open but the game will not load.")
+
+	var call_out := Label3D.new()
+	call_out.text = "E  —  PLAY TENNIS"
+	call_out.position = Vector3(0, 2.4, 0)
+	call_out.font_size = 48
+	call_out.modulate = Color("ffb703")
+	call_out.outline_modulate = Color.BLACK
+	call_out.outline_size = 8
+	call_out.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	add_child(call_out)
+
+	# Point at the gates from outside the fence.
+	for gx in [-hw - 1.2, hw + 1.2]:
+		var way := Label3D.new()
+		way.text = "COURTS  →"
+		way.position = Vector3(gx, 2.2, 0)
+		way.font_size = 30
+		way.modulate = Color("f1faee")
+		way.outline_modulate = Color.BLACK
+		way.outline_size = 6
+		way.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+		add_child(way)
 
 	var sign := Label3D.new()
 	sign.text = "AVALON TENNIS CENTRE"
