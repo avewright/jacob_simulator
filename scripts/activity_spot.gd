@@ -7,14 +7,14 @@ const RANGE := 4.5
 
 const GAMES := {
 	"foosball": "res://scenes/games/foosball.tscn",
-	"tennis": "res://scenes/games/tennis.tscn",
+	"tennis": "res://scenes/games/tennis_match.tscn",
 }
 
 var kind: String = ""
 var prompt_text: String = ""
 var pending: String = ""
 
-var _open: CanvasLayer
+var _open: Node
 
 
 func setup(activity_kind: String, prompt_label: String, placeholder: String) -> void:
@@ -45,6 +45,7 @@ func use() -> void:
 	if scene == null:
 		GameState.notice.emit(pending)
 		return
-	_open = scene.instantiate() as CanvasLayer
+	# Tennis is a 3D match, foosball a 2D console — take whatever the scene is.
+	_open = scene.instantiate()
 	get_tree().current_scene.add_child(_open)
 	_open.tree_exited.connect(func() -> void: _open = null)
