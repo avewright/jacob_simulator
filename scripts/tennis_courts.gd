@@ -63,19 +63,19 @@ func _court(cx: float) -> void:
 
 	# Baselines and doubles sidelines.
 	for dz in [-hl, hl]:
-		_line_box(Vector3(cx, dz), Vector3(DOUBLES, LINE))
+		_line_box(Vector2(cx, dz), Vector2(DOUBLES, LINE))
 	for dx in [-hw, hw]:
-		_line_box(Vector3(cx + dx, 0), Vector3(LINE, LEN))
+		_line_box(Vector2(cx + dx, 0), Vector2(LINE, LEN))
 	# Singles sidelines.
 	for dx in [-hs, hs]:
-		_line_box(Vector3(cx + dx, 0), Vector3(LINE, LEN))
+		_line_box(Vector2(cx + dx, 0), Vector2(LINE, LEN))
 	# Service lines and the centre service line.
 	for dz in [-SERVICE, SERVICE]:
-		_line_box(Vector3(cx, dz), Vector3(SINGLES, LINE))
-	_line_box(Vector3(cx, 0), Vector3(LINE, SERVICE * 2.0))
+		_line_box(Vector2(cx, dz), Vector2(SINGLES, LINE))
+	_line_box(Vector2(cx, 0), Vector2(LINE, SERVICE * 2.0))
 	# Centre marks on the baselines.
 	for dz in [-hl + 0.15, hl - 0.15]:
-		_line_box(Vector3(cx, dz), Vector3(LINE, 0.3))
+		_line_box(Vector2(cx, dz), Vector2(LINE, 0.3))
 
 	# Net: posts, cord, and a band that dips to 0.914 at the centre.
 	for dx in [-hw - 0.914, hw + 0.914]:
