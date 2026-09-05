@@ -5,9 +5,16 @@ extends Node3D
 
 const RANGE := 3.4
 
+const GAMES := {
+	"foosball": "res://scenes/games/foosball.tscn",
+	"tennis": "res://scenes/games/tennis.tscn",
+}
+
 var kind: String = ""
 var prompt_text: String = ""
 var pending: String = ""
+
+var _open: CanvasLayer
 
 
 func setup(activity_kind: String, prompt_label: String, placeholder: String) -> void:
@@ -17,7 +24,7 @@ func setup(activity_kind: String, prompt_label: String, placeholder: String) -> 
 
 
 func in_range(who: Node3D) -> bool:
-	if who == null:
+	if who == null or _open != null:
 		return false
 	if absf(who.global_position.y - global_position.y) > 2.5:
 		return false
@@ -30,4 +37,14 @@ func prompt() -> String:
 
 
 func use() -> void:
-	GameState.notice.emit(pending)
+	var path: String = String(GAMES.get(kind, ""))
+	if path == "" or not ResourceLoader.exists(path):
+		GameState.notice.emit(pending)
+		return
+	var scene := load(path) as PackedScene
+	if scene == null:
+		GameState.notice.emit(pending)
+		return
+	_open = scene.instantiate() as CanvasLayer
+	get_tree().current_scene.add_child(_open)
+	_open.tree_exited.connect(func() -> void: _open = null)
