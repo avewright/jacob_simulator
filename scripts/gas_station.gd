@@ -60,7 +60,10 @@ func _canopy() -> void:
 
 
 func _islands() -> void:
-	for side in [-1.0, 1.0]:
+	# Typed array, so `side` is a float rather than a Variant — bare literals
+	# make the loop variable untyped and `:=` then has nothing to infer from.
+	var sides: Array[float] = [-1.0, 1.0]
+	for side in sides:
 		var ix := side * 5.0
 		_box(Vector3(ix, 0.12, -1.0), Vector3(2.2, 0.24, 9.0), _concrete, true)
 		for j in 2:
