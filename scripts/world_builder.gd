@@ -313,6 +313,9 @@ func _blocked(x: float, z: float) -> bool:
 	# 5955 Haterleigh Dr and its lot.
 	if x > 44.0 and x < 84.0 and z > 56.0 and z < 96.0:
 		return true
+	# Chastain Place, north of the office across the z=-48 road.
+	if x > 34.0 and x < 88.0 and z > -102.0 and z < -54.0:
+		return true
 	return false
 
 
@@ -410,33 +413,20 @@ func _trees() -> void:
 
 
 func _streetlights() -> void:
-	var pole_m := _mat(Color("2a2a2a"), 0.4, 0.3)
-	var lamp_m := _mat(Color("fff1c2"), 0.3)
-	lamp_m.emission_enabled = true
-	lamp_m.emission = Color("fff1c2")
-	lamp_m.emission_energy_multiplier = 2.2
+	# Each post is its own body now so the Camry can flatten it.
+	var lamp_scene := load("res://scripts/street_lamp.gd")
 	var i := -300.0
 	while i <= 300.0:
 		if absf(i) < 22.0:
 			i += 36.0
 			continue
 		for side in [-16.0, 16.0]:
-			var pole := MeshInstance3D.new()
-			var cyl := CylinderMesh.new()
-			cyl.top_radius = 0.08
-			cyl.bottom_radius = 0.1
-			cyl.height = 6.2
-			pole.mesh = cyl
-			pole.material_override = pole_m
-			pole.position = Vector3(side, 3.1, i)
-			add_child(pole)
-			var lamp := MeshInstance3D.new()
-			var bulb := SphereMesh.new()
-			bulb.radius = 0.22
-			lamp.mesh = bulb
-			lamp.material_override = lamp_m
-			lamp.position = Vector3(side * 0.82, 6.15, i)
-			add_child(lamp)
+			var post := StaticBody3D.new()
+			post.set_script(lamp_scene)
+			post.position = Vector3(side, 0, i)
+			# Arm points in toward the carriageway.
+			post.rotation_degrees.y = 0.0 if side < 0.0 else 180.0
+			add_child(post)
 		i += 36.0
 
 

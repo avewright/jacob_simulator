@@ -378,11 +378,14 @@ func _fit_lobby() -> void:
 	_npc({
 		"name": "Myriam — Front Desk",
 		"pos": Vector3(-4.8, y, 0),
-		"shirt": Color("4a5568"),
+		"shirt": Color("8c2f47"),
+		"hair": Color("14100f"),
 		"lines": [
-			"Sales is on six. Elevator's by the stairs, or walk up if you like.",
-			"Fourth is operations. Nothing up there for you.",
-			"If Ralph asks, you were here at nine.",
+			"Well. Look who finally walked in. Sales is on six — but you knew that.",
+			"You clean up nice for someone who was in his underwear last week.",
+			"I'll buzz you up. Not because I have to. Because I like you.",
+			"If Ralph asks, you were here at nine. That's between us.",
+			"Six. Go on. I'll still be here when you come back down.",
 		],
 	})
 
@@ -412,16 +415,46 @@ func _fit_fourth() -> void:
 	tag.rotation_degrees.y = -90.0
 	add_child(tag)
 
-	_npc({
-		"name": "Gerald — Operations",
-		"pos": Vector3(-2.0, y, 3.0),
-		"shirt": Color("5b6b52"),
-		"lines": [
-			"You want six. People keep getting off here by mistake.",
-			"I approve the contracts you close. Try to spell the company names right.",
-			"There is coffee on six. Ours is worse.",
-		],
-	})
+	for spec in [
+		{
+			"name": "Porter — Systems",
+			"pos": Vector3(-9.4, y, 3.0),
+			"shirt": Color("46506b"),
+			"hair": Color("6b4f2a"),
+			"glasses": true,
+			"lines": [
+				"Mm. Kind of in the middle of something.",
+				"You want six. This is four. Those are different numbers.",
+				"I'd explain but you'd need a lot of context.",
+			],
+		},
+		{
+			"name": "Collin — Data",
+			"pos": Vector3(-4.6, y, 6.4),
+			"shirt": Color("3f6b52"),
+			"hair": Color("c96a2a"),
+			"glasses": true,
+			"lines": [
+				"Yeah, no, I'm heads-down right now.",
+				"Did Porter send you? Porter sends everyone.",
+				"I saw your pipeline. No notes. Well — some notes.",
+			],
+		},
+		{
+			"name": "Wei — Infrastructure",
+			"pos": Vector3(0.4, y, 3.0),
+			"shirt": Color("55606d"),
+			"skin": Color("e8c9a0"),
+			"hair": Color("100d0c"),
+			"glasses": true,
+			"lines": [
+				"Busy. Prod's on fire. Always is.",
+				"You're the sales guy. Sales guys break things and leave.",
+				"Ask me again after the deploy. Don't, actually.",
+			],
+		},
+	]:
+		_npc(spec)
 
 
 func _fit_sixth() -> void:
@@ -491,6 +524,7 @@ func _fit_sixth() -> void:
 			"name": "Ayden — Senior SDR",
 			"pos": Vector3(-6.2, y, 0.0),
 			"shirt": Color("1d3557"),
+			"hair": Color("0d0b0a"),
 			"lines": [
 				"Order matters: rapport, then a question, then the pitch, then ask for it.",
 				"If a lead goes cold, email them a couple times before you call again.",
@@ -498,19 +532,22 @@ func _fit_sixth() -> void:
 			],
 		},
 		{
-			"name": "Teddy — Sales Ops",
+			"name": "Tyler — Sales Ops",
 			"pos": Vector3(2.0, y, 6.0),
-			"shirt": Color("55606d"),
+			"shirt": Color("9c5f45"),
+			"hat": "cowboy",
+			"hair": Color("5b4432"),
 			"lines": [
-				"Convert the lead before you try to close it. The button's right there.",
+				"Convert the lead 'fore you try to close it. Button's right there, son.",
 				"Probability isn't the stage. You can be at Negotiation and still be at thirty percent.",
-				"I clean up the pipeline every Friday. Don't make Friday worse.",
+				"I tidy the pipeline every Friday. Don't make Friday worse, partner.",
 			],
 		},
 		{
 			"name": "Fiona — SDR",
 			"pos": Vector3(-6.2, y, 5.0),
 			"shirt": Color("2a9d8f"),
+			"hair": Color("e0c169"),
 			"lines": [
 				"Don't spam one lead with email. After about three they stop reading.",
 				"Closing under seventy percent is a coin flip. I've lost good leads that way.",
@@ -558,7 +595,7 @@ func _npc(spec: Dictionary) -> void:
 	npc.add_to_group("office_npc")
 	npc.set_script(load("res://scripts/office/office_npc.gd"))
 	add_child(npc)
-	npc.setup(spec.name, spec.lines, spec.shirt)
+	npc.setup(spec)
 
 
 # ------------------------------------------------------------------ helpers

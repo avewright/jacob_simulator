@@ -5,6 +5,7 @@ const GOLD := Color("ffb703")
 var _money: Label
 var _fuel: Label
 var _health: Label
+var _clock: Label
 var _state: Label
 var _speed: Label
 var _objective: Label
@@ -45,6 +46,7 @@ func _process(delta: float) -> void:
 	else:
 		_state.text = "IN UNDERWEAR"
 	_speed.text = ("%d mph" % int(round(GameState.speed_mph))) if GameState.in_car else ""
+	_clock.text = "Day %d  %s" % [GameState.day, GameState.time_string()]
 	_minimap.queue_redraw()
 
 
@@ -102,6 +104,7 @@ func _build() -> void:
 	_money = _pill(top, "$420")
 	_fuel = _pill(top, "78%")
 	_health = _pill(top, "100%")
+	_clock = _pill(top, "8:00 AM")
 	_state = _pill(top, "ON FOOT")
 	_speed = _pill(top, "")
 

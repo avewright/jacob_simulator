@@ -1,4 +1,4 @@
-[gd_scene load_steps=16 format=3]
+[gd_scene load_steps=18 format=3]
 
 [ext_resource type="Script" path="res://scripts/main.gd" id="1_main"]
 [ext_resource type="Script" path="res://scripts/world_builder.gd" id="2_world"]
@@ -13,6 +13,8 @@
 [ext_resource type="Script" path="res://scripts/office/office_tower.gd" id="11_office"]
 [ext_resource type="Script" path="res://scripts/parking_garage.gd" id="12_garage"]
 [ext_resource type="Script" path="res://scripts/haterleigh_house.gd" id="13_house"]
+[ext_resource type="Script" path="res://scripts/chastain_place.gd" id="14_chastain"]
+[ext_resource type="Script" path="res://scripts/day_night.gd" id="15_daynight"]
 
 [sub_resource type="ProceduralSkyMaterial" id="ProceduralSkyMaterial_1"]
 sky_top_color = Color(0.28, 0.52, 0.86, 1)
@@ -59,6 +61,9 @@ light_energy = 0.28
 light_color = Color(0.75, 0.82, 1, 1)
 shadow_enabled = false
 
+[node name="DayNight" type="Node" parent="."]
+script = ExtResource("15_daynight")
+
 [node name="WorldBuilder" type="Node3D" parent="."]
 script = ExtResource("2_world")
 
@@ -75,6 +80,10 @@ script = ExtResource("9_shop")
 [node name="OfficeTower" type="Node3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 46, 0, 0)
 script = ExtResource("11_office")
+
+[node name="ChastainPlace" type="Node3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 61, 0, -78)
+script = ExtResource("14_chastain")
 
 [node name="HaterleighHouse" type="Node3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 62, 0, 79)

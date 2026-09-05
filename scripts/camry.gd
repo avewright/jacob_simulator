@@ -139,6 +139,9 @@ func _check_crash(before: Vector2) -> void:
 		if closing > worst:
 			worst = closing
 			what = _describe(c.get_collider())
+		var lamp := c.get_collider() as Node
+		if closing > CRASH_MIN_SPEED and lamp and lamp.is_in_group("street_lamp") and lamp.has_method("hit"):
+			lamp.hit(Vector3(before.x, 0.0, before.y).normalized())
 	if worst < CRASH_MIN_SPEED:
 		return
 	_crash(worst, what)
@@ -150,6 +153,8 @@ func _describe(collider: Object) -> String:
 		return "something"
 	if n.is_in_group("traffic"):
 		return "another car"
+	if n.is_in_group("street_lamp"):
+		return "a lamp post"
 	if n.is_in_group("smashable"):
 		return "a tree"
 	return "a wall"

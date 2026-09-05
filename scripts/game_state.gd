@@ -10,6 +10,8 @@ signal missions_changed
 signal prompt_changed(text: String)
 signal clothes_changed(value: bool)
 signal car_health_changed(amount: float)
+signal hour_changed(hour: int)
+signal day_changed(day: int)
 
 const SAVE_PATH := "user://save.json"
 const START_MONEY := 420
@@ -58,6 +60,11 @@ var objective: String = "You're in your underwear. Buy clothes, then go to work.
 	set(value):
 		objective = value
 		objective_changed.emit(objective)
+
+## Game time in hours, 0..24. NPC routines should read this rather than
+## tracking their own timers.
+var clock: float = 8.0
+var day: int = 1
 
 var sales_leads: Array = []
 var sales_calls: int = 0
@@ -129,6 +136,8 @@ func reset_new_game() -> void:
 	in_car = false
 	speed_mph = 0.0
 	car_health = 100.0
+	clock = 8.0
+	day = 1
 	sales_leads = []
 	sales_calls = 0
 	sales_emails = 0
@@ -143,6 +152,28 @@ func reset_new_game() -> void:
 	has_clothes = false
 	objective = "You're in your underwear. Buy clothes, then go to work."
 	missions_changed.emit()
+
+
+func advance_clock(hours: float) -> void:
+	clock += hours
+	while clock >= 24.0:
+		clock -= 24.0
+		day += 1
+		day_changed.emit(day)
+
+
+func is_night() -> bool:
+	return clock < 6.0 or clock >= 19.5
+
+
+func time_string() -> String:
+	var h := int(clock)
+	var m := int((clock - h) * 60.0)
+	var suffix := "AM" if h < 12 else "PM"
+	var display := h % 12
+	if display == 0:
+		display = 12
+	return "%d:%02d %s" % [display, m, suffix]
 
 
 func ensure_leads() -> void:
