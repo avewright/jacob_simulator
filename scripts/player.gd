@@ -16,6 +16,18 @@ const HELLOS := [
 ]
 const OW := preload("res://assets/audio/voice/hit.wav")
 
+const RUSH_SPIN := 5.4          # how fast he corkscrews, rad/sec
+const RUSH_HOP := 0.34          # seconds between hops
+const SUGAR_START := preload("res://assets/audio/sugar/sugar_start.wav")
+const SUGAR_LOOP := preload("res://assets/audio/sugar/sugar_loop.wav")
+const SUGAR_END := preload("res://assets/audio/sugar/sugar_end.wav")
+const RUSH_YELLS := [
+	preload("res://assets/audio/sugar/rush_1.wav"),
+	preload("res://assets/audio/sugar/rush_2.wav"),
+	preload("res://assets/audio/sugar/rush_3.wav"),
+]
+const CRASH_LINE := preload("res://assets/audio/sugar/crash_1.wav")
+
 @onready var visuals: JacobLook = $Visuals
 
 var _gravity: float = ProjectSettings.get_setting("physics/3d/default_gravity")
@@ -24,6 +36,13 @@ var _knocked: float = 0.0
 var _roll: float = 0.0
 var _wave: float = 0.0
 var _voice: AudioStreamPlayer3D
+var _rush: float = 0.0
+var _rush_angle: float = 0.0
+var _rush_hop: float = 0.0
+var _rush_yell: float = 0.0
+var _buzz: AudioStreamPlayer3D
+var _rush_at: float = -1.0      # hour today the spontaneous rush fires
+var _rush_day: int = -1
 
 
 func _ready() -> void:
@@ -36,6 +55,16 @@ func _ready() -> void:
 	_voice.volume_db = 2.0
 	_voice.max_distance = 30.0
 	add_child(_voice)
+	_buzz = AudioStreamPlayer3D.new()
+	_buzz.volume_db = -4.0
+	_buzz.max_distance = 26.0
+	var loop_stream := SUGAR_LOOP.duplicate()
+	if loop_stream is AudioStreamWAV:
+		(loop_stream as AudioStreamWAV).loop_mode = AudioStreamWAV.LOOP_FORWARD
+	_buzz.stream = loop_stream
+	add_child(_buzz)
+	_schedule_rush()
+	GameState.day_changed.connect(func(_d: int) -> void: _schedule_rush())
 	_set_on_foot(true)
 	visuals.set_clothed(GameState.has_clothes)
 	GameState.clothes_changed.connect(visuals.set_clothed)
@@ -46,6 +75,10 @@ func _physics_process(delta: float) -> void:
 		return
 	if _knocked > 0.0:
 		_process_knockdown(delta)
+		return
+	_check_spontaneous_rush()
+	if _rush > 0.0:
+		_process_rush(delta)
 		return
 	if not is_on_floor():
 		velocity.y -= _gravity * delta
@@ -109,6 +142,86 @@ func _physics_process(delta: float) -> void:
 			missions.try_interact()
 
 
+## Once a day, unprompted, for ten seconds.
+func _schedule_rush() -> void:
+	_rush_day = GameState.day
+	_rush_at = randf_range(9.0, 21.0)
+
+
+func _check_spontaneous_rush() -> void:
+	if _rush_day != GameState.day or _rush_at < 0.0:
+		return
+	if GameState.clock < _rush_at:
+		return
+	_rush_at = -1.0
+	sugar_rush(10.0, "Something in you just snapped. SUGAR RUSH.")
+
+
+## Take the controls away and let him corkscrew. Called by the shop counters
+## too, for a shorter burst.
+func sugar_rush(seconds: float, why: String) -> void:
+	if _knocked > 0.0:
+		return
+	var fresh: bool = _rush <= 0.0
+	_rush = maxf(_rush, seconds)
+	if not fresh:
+		return
+	_rush_angle = visuals.rotation.y
+	_rush_hop = 0.0
+	_rush_yell = 0.6
+	_wave = 0.0
+	visuals.wave_arm(0.0, 0.0)
+	_say(SUGAR_START)
+	if _buzz:
+		_buzz.play()
+	GameState.prompt = ""
+	GameState.notice.emit(why)
+
+
+func _process_rush(delta: float) -> void:
+	_rush -= delta
+	_rush_angle += RUSH_SPIN * delta
+
+	if not is_on_floor():
+		velocity.y -= _gravity * delta
+	else:
+		_rush_hop -= delta
+		if _rush_hop <= 0.0:
+			_rush_hop = RUSH_HOP
+			velocity.y = JUMP_VELOCITY * randf_range(0.8, 1.15)
+
+	var wish := Vector3(sin(_rush_angle), 0.0, cos(_rush_angle))
+	var planar := Vector3(velocity.x, 0.0, velocity.z)
+	planar = planar.move_toward(wish * SPRINT_SPEED, ACCEL * 1.4 * delta)
+	velocity.x = planar.x
+	velocity.z = planar.z
+	move_and_slide()
+	global_position.x = clampf(global_position.x, -360.0, 360.0)
+	global_position.z = clampf(global_position.z, -360.0, 360.0)
+	if global_position.y < -8.0:
+		_recover()
+
+	visuals.rotation.y = lerp_angle(visuals.rotation.y, atan2(wish.x, wish.z), 1.0 - exp(-14.0 * delta))
+	visuals.wave_arm(1.9 + sin(_rush_angle * 3.0) * 0.7, sin(_rush_angle * 5.0) * 0.6)
+	visuals.animate(velocity, is_on_floor(), true, true, delta)
+
+	_rush_yell -= delta
+	if _rush_yell <= 0.0:
+		_rush_yell = randf_range(2.6, 4.0)
+		_say(RUSH_YELLS[randi() % RUSH_YELLS.size()])
+
+	if _rush <= 0.0:
+		_rush = 0.0
+		visuals.wave_arm(0.0, 0.0)
+		if _buzz:
+			_buzz.stop()
+		_say(SUGAR_END)
+		get_tree().create_timer(1.0).timeout.connect(func() -> void:
+			if _rush <= 0.0 and _voice and not _voice.playing:
+				_say(CRASH_LINE))
+		GameState.notice.emit("...that's worn off.")
+
+
 func _start_wave() -> void:
 	if _wave > 0.0 or _knocked > 0.0:
 		return
@@ -145,6 +258,9 @@ func hit_by_car(forward: Vector3, speed: float) -> void:
 		push = -visuals.global_transform.basis.z
 	push = push.normalized()
 	_knocked = KNOCK_TIME
+	_rush = 0.0
+	if _buzz:
+		_buzz.stop()
 	_wave = 0.0
 	visuals.wave_arm(0.0, 0.0)
 	_roll = randf_range(-2.2, 2.2)

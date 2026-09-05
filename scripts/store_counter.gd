@@ -33,14 +33,22 @@ func buy() -> void:
 		"soda":
 			if GameState.spend_money(GameState.SODA_PRICE):
 				GameState.sodas += 1
-				GameState.notice.emit("Soda. That's %d today." % GameState.sodas)
+				_rush("Soda. That's %d today." % GameState.sodas)
 			else:
 				GameState.notice.emit("Not enough for a soda.")
 		"candy":
 			if GameState.spend_money(GameState.CANDY_PRICE):
 				GameState.candy += 1
-				GameState.notice.emit("Candy. That's %d today." % GameState.candy)
+				_rush("Candy. That's %d today." % GameState.candy)
 			else:
 				GameState.notice.emit("Not enough for candy.")
 		_:
 			GameState.buy_clothes()
+
+
+## Sugar goes straight to his legs.
+func _rush(line: String) -> void:
+	GameState.notice.emit(line)
+	var player = get_tree().get_first_node_in_group("player")
+	if player and player.has_method("sugar_rush"):
+		player.sugar_rush(5.0, "SUGAR RUSH")
