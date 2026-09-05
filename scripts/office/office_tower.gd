@@ -444,6 +444,8 @@ func _fit_fourth() -> void:
 	_box(Vector3(-8.0, y + 1.4, -5.0), Vector3(10.0, 2.8, 0.14), _glass, true)
 	_box(Vector3(-8.0, y + 0.79, -8.0), Vector3(4.0, 0.08, 2.0), wood, true)
 
+	_foosball(Vector3(6.0, y, 6.5))
+
 	var tag := Label3D.new()
 	tag.text = "OPERATIONS"
 	tag.position = Vector3(-12.4, y + 3.4, 0)
@@ -593,6 +595,76 @@ func _fit_sixth() -> void:
 		},
 	]:
 		_npc(spec)
+
+
+## Foosball table. Cabinet, eight rods with figures in two strips, goal
+## mouths and bead counters — laid out so a match minigame can drive the rods.
+func _foosball(at: Vector3) -> void:
+	var cab := _mat(Color("3a2a1c"), 0.7)
+	var pitch := _mat(Color("1f6b34"), 0.85)
+	var chrome := _mat(Color("c9ccd0"), 0.25, 0.85)
+	var red := _mat(Color("c1272d"), 0.5)
+	var blue := _mat(Color("1d4e89"), 0.5)
+
+	var tw := 1.42        # play area across (x)
+	var td := 0.78        # play area deep (z)
+	var top := 0.92       # playing surface height
+
+	# Cabinet: surface, side rails, end walls, legs.
+	_box(at + Vector3(0, top - 0.03, 0), Vector3(tw, 0.06, td), pitch, true)
+	for dx in [-tw * 0.5 - 0.06, tw * 0.5 + 0.06]:
+		_box(at + Vector3(dx, top + 0.04, 0), Vector3(0.12, 0.22, td + 0.24), cab, true)
+	for dz in [-td * 0.5 - 0.06, td * 0.5 + 0.06]:
+		_box(at + Vector3(0, top + 0.04, dz), Vector3(tw + 0.24, 0.22, 0.12), cab, true)
+	_box(at + Vector3(0, top - 0.16, 0), Vector3(tw + 0.24, 0.2, td + 0.24), cab, true)
+	for lx in [-tw * 0.5 + 0.06, tw * 0.5 - 0.06]:
+		for lz in [-td * 0.5 + 0.06, td * 0.5 - 0.06]:
+			_box(at + Vector3(lx, (top - 0.26) * 0.5, lz), Vector3(0.09, top - 0.26, 0.09), cab, true)
+
+	# Pitch markings.
+	_box(at + Vector3(0, top + 0.01, 0), Vector3(0.02, 0.01, td - 0.04), _mat(Color("f1faee"), 0.6), false)
+	for gz in [-td * 0.5 - 0.05, td * 0.5 + 0.05]:
+		_box(at + Vector3(0, top + 0.02, gz), Vector3(0.34, 0.1, 0.04), _mat(Color("11151a"), 0.4), false)
+
+	# Eight rods: red on 1/3/5/7, blue on 2/4/6/8, with figures per rod.
+	var counts := [1, 2, 5, 3, 3, 5, 2, 1]
+	for i in 8:
+		var rx: float = -tw * 0.5 + tw * (i + 1) / 9.0
+		var side_red := i % 2 == 0
+		_box(at + Vector3(rx, top + 0.11, 0), Vector3(0.03, 0.03, td + 0.62), chrome, false)
+		for h in [-1.0, 1.0]:
+			_box(at + Vector3(rx, top + 0.11, h * (td * 0.5 + 0.34)), Vector3(0.05, 0.05, 0.14), cab, false)
+		var n: int = counts[i]
+		for f in n:
+			var fz: float = -td * 0.4 + (td * 0.8) * (f + 0.5) / float(n)
+			var body := red if side_red else blue
+			_box(at + Vector3(rx, top + 0.06, fz), Vector3(0.045, 0.13, 0.05), body, false)
+			_box(at + Vector3(rx, top + 0.14, fz), Vector3(0.06, 0.05, 0.06), body, false)
+
+	# Bead score counters on the long rail.
+	for team in 2:
+		for b in 5:
+			var bx: float = -0.42 + team * 0.6 + b * 0.055
+			_box(at + Vector3(bx, top + 0.2, -td * 0.5 - 0.13), Vector3(0.04, 0.04, 0.04),
+				red if team == 0 else blue, false)
+
+	var spot := Node3D.new()
+	spot.name = "FoosballSpot"
+	spot.position = at + Vector3(0, 0, td * 0.5 + 0.9)
+	spot.add_to_group("activity")
+	spot.set_script(load("res://scripts/activity_spot.gd"))
+	add_child(spot)
+	spot.setup("foosball", "E  Play foosball", "Nobody on ops will play you. Yet.")
+
+	var tag := Label3D.new()
+	tag.text = "FOOSBALL"
+	tag.position = at + Vector3(0, top + 0.75, 0)
+	tag.font_size = 26
+	tag.modulate = Color("ffb703")
+	tag.outline_modulate = Color.BLACK
+	tag.outline_size = 6
+	tag.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	add_child(tag)
 
 
 func _desk(at: Vector3, wood: Material, screen: Material, is_jacobs: bool) -> void:

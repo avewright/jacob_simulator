@@ -285,8 +285,8 @@ func _blocked(x: float, z: float) -> bool:
 		return true
 	if x > 2.0 and x < 58.0 and absf(z) < 22.0:
 		return true
-	# Super Strikers arcade plot.
-	if x > 14.0 and x < 48.0 and z > -40.0 and z < -20.0:
+	# Super Strikers arcade, across the avenue from the office.
+	if x > -56.0 and x < -22.0 and z > -42.0 and z < -14.0:
 		return true
 	# 10000 Avalon tower plot.
 	if x > 30.0 and x < 62.0 and absf(z) < 14.0:
@@ -302,6 +302,9 @@ func _blocked(x: float, z: float) -> bool:
 		return true
 	# Whole Foods and its car park, west of the avenue.
 	if x > -92.0 and x < -18.0 and z > -14.0 and z < 34.0:
+		return true
+	# Avalon tennis centre, along the road from Chastain.
+	if x > 98.0 and x < 150.0 and z > -106.0 and z < -56.0:
 		return true
 	return false
 

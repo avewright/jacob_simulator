@@ -20,8 +20,8 @@ const MISSIONS := [
 	{
 		"id": "avalon",
 		"label": "AVALON — TENNIS",
-		"hint": "Get to Avalon and hold still for a set.",
-		"pos": Vector3(128, 0, 62),
+		"hint": "Get to the Avalon courts and hold still for a set.",
+		"pos": Vector3(124, 0, -80),
 		"color": Color("90be6d"),
 		"kind": "hold",
 		"hold": 4.0,

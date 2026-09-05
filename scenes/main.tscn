@@ -1,4 +1,4 @@
-[gd_scene load_steps=18 format=3]
+[gd_scene load_steps=19 format=3]
 
 [ext_resource type="Script" path="res://scripts/main.gd" id="1_main"]
 [ext_resource type="Script" path="res://scripts/world_builder.gd" id="2_world"]
@@ -15,6 +15,7 @@
 [ext_resource type="Script" path="res://scripts/haterleigh_house.gd" id="13_house"]
 [ext_resource type="Script" path="res://scripts/chastain_place.gd" id="14_chastain"]
 [ext_resource type="Script" path="res://scripts/day_night.gd" id="15_daynight"]
+[ext_resource type="Script" path="res://scripts/tennis_courts.gd" id="16_tennis"]
 
 [sub_resource type="ProceduralSkyMaterial" id="ProceduralSkyMaterial_1"]
 sky_top_color = Color(0.28, 0.52, 0.86, 1)
@@ -81,6 +82,10 @@ script = ExtResource("9_shop")
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 46, 0, 0)
 script = ExtResource("11_office")
 
+[node name="TennisCourts" type="Node3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 124, 0, -80)
+script = ExtResource("16_tennis")
+
 [node name="ChastainPlace" type="Node3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 61, 0, -78)
 script = ExtResource("14_chastain")
@@ -94,7 +99,7 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 46, 0, 28)
 script = ExtResource("12_garage")
 
 [node name="SoccerArcade" type="Node3D" parent="."]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 30, 0, -32)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -38, 0, -30)
 script = ExtResource("10_arcade")
 
 [node name="Jacob" parent="." instance=ExtResource("5_jacob")]
