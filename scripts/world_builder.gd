@@ -303,6 +303,9 @@ func _blocked(x: float, z: float) -> bool:
 	# Whole Foods and its car park, west of the avenue.
 	if x > -92.0 and x < -18.0 and z > -14.0 and z < 34.0:
 		return true
+	# QT forecourt, just north of the office.
+	if x > 10.0 and x < 50.0 and z > -42.0 and z < -10.0:
+		return true
 	# Avalon tennis centre, along the road from Chastain.
 	if x > 98.0 and x < 150.0 and z > -106.0 and z < -56.0:
 		return true

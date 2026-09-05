@@ -78,6 +78,10 @@ func _physics_process(delta: float) -> void:
 		if _arcade_in_range():
 			GameState.enter_arcade()
 			return
+		var pump := _near("gas_pump")
+		if pump:
+			pump.use()
+			return
 		var spot := _near("activity")
 		if spot:
 			spot.use()
@@ -218,6 +222,10 @@ func _update_prompt() -> void:
 	var car := get_tree().get_first_node_in_group("camry")
 	if car and car.has_method("in_enter_range") and car.in_enter_range():
 		GameState.prompt = "E  Enter Camry"
+		return
+	var pump := _near("gas_pump")
+	if pump:
+		GameState.prompt = String(pump.prompt())
 		return
 	var spot := _near("activity")
 	if spot:

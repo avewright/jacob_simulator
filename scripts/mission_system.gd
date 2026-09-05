@@ -40,8 +40,8 @@ const MISSIONS := [
 	{
 		"id": "qt",
 		"label": "QT — GAS",
-		"hint": "Stop at QT. $40 fills the tank (E).",
-		"pos": Vector3(-42, 0, 148),
+		"hint": "Low on fuel? QT is just north of the office. $40 fills the tank (E).",
+		"pos": Vector3(30, 0, -26),
 		"color": Color.WHITE,
 		"kind": "gas",
 	},

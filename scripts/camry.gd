@@ -71,8 +71,16 @@ func _physics_process(delta: float) -> void:
 		_apply_move()
 		return
 
-	GameState.prompt = "E  Exit Camry" if absf(_speed) < EXIT_SPEED else "Stop to get out"
+	var pump := _pump_in_range()
+	if pump and absf(_speed) < EXIT_SPEED:
+		GameState.prompt = String(pump.prompt())
+	else:
+		GameState.prompt = "E  Exit Camry" if absf(_speed) < EXIT_SPEED else "Stop to get out"
 	if Input.is_action_just_pressed("interact") and absf(_speed) < EXIT_SPEED:
+		if pump:
+			pump.use()
+			_apply_move()
+			return
 		var missions := get_tree().get_first_node_in_group("mission_system")
 		if missions and missions.has_method("try_interact") and missions.try_interact():
 			return
@@ -104,7 +112,12 @@ func _physics_process(delta: float) -> void:
 		_yaw += steer * 1.8 * signf(_speed) * delta
 
 	if absf(_speed) > 0.8 and GameState.fuel > 0.0:
+		var was := GameState.fuel
 		GameState.consume_fuel(0.7 * delta)
+		if was > 20.0 and GameState.fuel <= 20.0:
+			GameState.notice.emit("Low fuel. QT is signposted — or press R for a fresh Camry.")
+		elif was > 0.0 and GameState.fuel <= 0.0:
+			GameState.notice.emit("Out of gas. Press R for a fresh Camry, then fill up at QT.")
 
 	_apply_move()
 	global_position.x = clampf(global_position.x, -350.0, 350.0)
@@ -145,6 +158,14 @@ func _check_crash(before: Vector2) -> void:
 	if worst < CRASH_MIN_SPEED:
 		return
 	_crash(worst, what)
+
+
+func _pump_in_range() -> Node3D:
+	for n in get_tree().get_nodes_in_group("gas_pump"):
+		var node := n as Node3D
+		if node and node.has_method("in_range") and node.in_range(self):
+			return node
+	return null
 
 
 func _describe(collider: Object) -> String:
@@ -335,7 +356,8 @@ func _reset_near_player() -> void:
 	rotation.y = _yaw
 	_crash_cooldown = CRASH_COOLDOWN
 	_set_health(MAX_HEALTH)
-	GameState.notice.emit("Fresh Camry delivered.")
+	GameState.fuel = maxf(GameState.fuel, 35.0)
+	GameState.notice.emit("Fresh Camry delivered, tank topped up.")
 
 
 func _build_damage_fx() -> void:
