@@ -404,7 +404,8 @@ func _streetlights() -> void:
 	var lamp_scene := load("res://scripts/street_lamp.gd")
 	var i := -300.0
 	while i <= 300.0:
-		if absf(i) < 22.0:
+		# Skip the junctions: a post at z = -48 or 168 stands in the cross street.
+		if absf(i) < 22.0 or _on_pavement(0.0, i, 2.0):
 			i += 36.0
 			continue
 		for side in [-17.4, 17.4]:

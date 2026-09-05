@@ -11,7 +11,9 @@ const W := 26.0
 const D := 22.0
 const T := 0.45
 const SLAB := 0.4
-const ROOF_Y := 16.4
+const ROOF_Y := 27.0
+const BASE_Y := 4.6        # storefront band height
+const BAND := 2.85         # apparent floor-to-floor on the facade
 const DOOR_W := 2.8
 const DOOR_H := 2.7
 const OPEN_RANGE := 5.0
@@ -38,6 +40,7 @@ var _shell: StandardMaterial3D
 var _stone: StandardMaterial3D
 var _curtain: StandardMaterial3D
 var _spandrel: StandardMaterial3D
+var _mullion: StandardMaterial3D
 var _slabmat: StandardMaterial3D
 var _glass: StandardMaterial3D
 var _trim: StandardMaterial3D
@@ -93,9 +96,10 @@ func _make_mats() -> void:
 	# Palette off the reference: warm grey-pink precast piers against a dark
 	# blue-green reflective curtain wall.
 	_shell = _mat(Color("a3928c"), 0.72)
-	_stone = _mat(Color("b0a099"), 0.6)
-	_curtain = _mat(Color("15343a"), 0.12, 0.75)
+	_stone = _mat(Color("b09a92"), 0.65)
+	_curtain = _mat(Color("16383f"), 0.1, 0.8)
 	_spandrel = _mat(Color("0e2429"), 0.2, 0.5)
+	_mullion = _mat(Color("6f7a80"), 0.4, 0.5)
 	_slabmat = _mat(Color("4a4f57"), 0.85)
 	_trim = _mat(Color("c9a227"), 0.35, 0.6)
 	_glass = _mat(Color(0.42, 0.62, 0.78, 0.45), 0.06, 0.2)
@@ -104,53 +108,72 @@ func _make_mats() -> void:
 
 ## Clads one elevation. `ns` true means the face lies in the XY plane at
 ## z = out_v; false means the YZ plane at x = out_v.
-## `door_half` reserves a gap of that half-width at u = 0 across the whole
-## ground band, so nothing is drawn over the entrance.
+## Clads one elevation the way the reference reads: alternating bays of warm
+## precast with punched windows and recessed blue-green curtain wall, over a
+## clear storefront base, under a projecting cornice.
+##
+## `door_half` reserves a gap at u = 0 across the base so nothing covers the way
+## in. `ns` true means the face lies in the XY plane at z = out_v.
 func _clad(ns: bool, out_v: float, length: float, bays: int, storefront: bool, door_half: float = 0.0) -> void:
 	var away := signf(out_v)
 	var half := length * 0.5
 	var step := length / float(bays)
-	var sill := DOOR_H + 0.5
+	var top := ROOF_Y - 0.6
 
-	# Recessed glass field behind the piers.
-	if door_half <= 0.0:
-		_face_box(ns, 0.0, ROOF_Y * 0.5 + 0.3, out_v + away * 0.02, length - 0.6, ROOF_Y - 0.6, 0.18, _curtain)
-	else:
-		# Above the entrance, then two flanking panels beside it.
-		_face_box(ns, 0.0, (sill + ROOF_Y - 0.3) * 0.5, out_v + away * 0.02, length - 0.6, ROOF_Y - 0.3 - sill, 0.18, _curtain)
-		var side := (half - 0.3 - door_half) * 0.5
-		for dir in [-1.0, 1.0]:
-			_face_box(ns, dir * (door_half + side), sill * 0.5, out_v + away * 0.02, side * 2.0, sill, 0.18, _curtain)
+	for i in bays:
+		var u := -half + step * (i + 0.5)
+		var w := step - 0.9
+		# Alternate: stone bays carry punched windows, glass bays are recessed.
+		if i % 2 == 0:
+			_face_box(ns, u, (BASE_Y + top) * 0.5, out_v + away * 0.12, w, top - BASE_Y, 0.26, _stone)
+			_punch(ns, u, w, out_v + away * 0.27)
+		else:
+			_face_box(ns, u, (BASE_Y + top) * 0.5, out_v + away * 0.02, w, top - BASE_Y, 0.16, _curtain)
+			var rows := int((top - BASE_Y) / BAND)
+			for r in range(1, rows + 1):
+				_face_box(ns, u, BASE_Y + r * BAND, out_v + away * 0.1, w, 0.16, 0.2, _mullion)
 
-	# Precast piers, skipping any that would land across the doorway.
+	# Precast piers between the bays, running the full height.
 	for i in range(bays + 1):
 		var u := -half + i * step
-		if door_half > 0.0 and absf(u) < door_half + 0.75:
-			_face_box(ns, u, (sill + ROOF_Y) * 0.5, out_v + away * 0.16, 1.5, ROOF_Y - sill, 0.34, _stone)
+		if door_half > 0.0 and absf(u) < door_half + 0.8:
+			_face_box(ns, u, (BASE_Y + ROOF_Y) * 0.5, out_v + away * 0.22, 1.3, ROOF_Y - BASE_Y, 0.4, _stone)
 			continue
-		_face_box(ns, u, ROOF_Y * 0.5, out_v + away * 0.16, 1.5, ROOF_Y, 0.34, _stone)
+		_face_box(ns, u, ROOF_Y * 0.5, out_v + away * 0.22, 1.3, ROOF_Y, 0.4, _stone)
 
-	# Spandrel band at each floor line, plus one at the parapet.
-	for f in FLOORS:
-		if door_half > 0.0 and f.y < sill:
-			continue
-		_face_box(ns, 0.0, f.y - 0.35, out_v + away * 0.1, length - 3.4, 0.9, 0.26, _spandrel)
-	_face_box(ns, 0.0, ROOF_Y - 1.1, out_v + away * 0.1, length - 3.4, 0.9, 0.26, _spandrel)
-
+	# Storefront base: taller, clearer glazing with a stone sill and a canopy.
 	if door_half > 0.0:
-		# Entrance surround so the way in reads at a glance.
-		_face_box(ns, 0.0, sill + 0.25, out_v + away * 0.3, door_half * 2.0 + 1.2, 0.5, 0.5, _trim)
+		var side := (half - 0.7 - door_half) * 0.5
 		for dir in [-1.0, 1.0]:
-			_face_box(ns, dir * (door_half + 0.3), sill * 0.5, out_v + away * 0.3, 0.6, sill, 0.5, _trim)
-		_face_box(ns, 0.0, sill + 1.1, out_v + away * 0.95, door_half * 2.0 + 2.2, 0.22, 1.9, _stone)
+			_face_box(ns, dir * (door_half + side), BASE_Y * 0.5 + 0.1, out_v + away * 0.06, side * 2.0, BASE_Y - 0.2, 0.2, _glass)
+		# Surround and canopy over the entrance.
+		_face_box(ns, 0.0, DOOR_H + 0.35, out_v + away * 0.3, door_half * 2.0 + 1.4, 0.6, 0.6, _trim)
+		for dir in [-1.0, 1.0]:
+			_face_box(ns, dir * (door_half + 0.35), DOOR_H * 0.5, out_v + away * 0.3, 0.7, DOOR_H, 0.6, _trim)
+		_face_box(ns, 0.0, DOOR_H + 1.3, out_v + away * 1.0, door_half * 2.0 + 3.0, 0.25, 2.2, _stone)
+	elif storefront:
+		_face_box(ns, 0.0, BASE_Y * 0.5 + 0.1, out_v + away * 0.06, length - 3.0, BASE_Y - 0.2, 0.2, _glass)
+		_face_box(ns, 0.0, BASE_Y + 0.45, out_v + away * 0.5, length - 1.0, 0.35, 1.3, _stone)
 
-	if storefront:
-		# Taller, clearer glazing at street level with a canopy over it.
-		_face_box(ns, 0.0, 1.7, out_v + away * 0.22, length - 4.0, 3.2, 0.14, _glass)
-		_face_box(ns, 0.0, 3.55, out_v + away * 0.75, length - 3.0, 0.22, 1.7, _stone)
+	# Spandrel band capping the base, and the cornice.
+	_face_box(ns, 0.0, BASE_Y - 0.15, out_v + away * 0.16, length - 1.0, 0.5, 0.3, _spandrel)
+	_face_box(ns, 0.0, top + 0.5, out_v + away * 0.16, length - 1.0, 0.7, 0.3, _spandrel)
+	_face_box(ns, 0.0, ROOF_Y + 0.45, out_v + away * 0.6, length + 2.0, 0.9, 1.5, _stone)
 
-	# Overhanging cornice, the flat cap in the photo.
-	_face_box(ns, 0.0, ROOF_Y + 0.3, out_v + away * 0.5, length + 1.6, 0.7, 1.3, _stone)
+
+## Grid of punched windows across a precast bay.
+func _punch(ns: bool, u: float, w: float, out_v: float) -> void:
+	var cols := maxi(1, int(w / 2.1))
+	var rows := int((ROOF_Y - 0.6 - BASE_Y) / BAND)
+	var gap := w / float(cols)
+	for r in range(rows):
+		var y := BASE_Y + 0.9 + r * BAND
+		if y + 1.5 > ROOF_Y - 0.6:
+			break
+		for c in range(cols):
+			var cu := u - w * 0.5 + gap * (c + 0.5)
+			_face_box(ns, cu, y + 0.75, out_v, 1.15, 1.5, 0.1, _curtain)
+			_face_box(ns, cu, y + 1.6, out_v + 0.02, 1.35, 0.12, 0.14, _trim)
 
 
 func _face_box(ns: bool, u: float, y: float, out_v: float, su: float, sy: float, so: float, material: Material) -> void:
@@ -175,8 +198,8 @@ func _build_shell() -> void:
 	# Curtain wall. Decoration only — the structural walls above carry collision.
 	_clad(true, -hz, W, 5, true)
 	_clad(true, hz, W, 5, true)
-	_clad(false, hx, D, 4, true)
-	_clad(false, -hx, D, 4, false, DOOR_W * 0.5 + 0.35)
+	_clad(false, hx, D, 5, true)
+	_clad(false, -hx, D, 5, false, DOOR_W * 0.5 + 0.35)
 
 	# Louvred trellis over the north-west corner, as in the photo.
 	for i in 7:
@@ -190,7 +213,7 @@ func _build_shell() -> void:
 	# x = hx + 1.15, so anything closer than that renders half-buried.
 	var sign := Label3D.new()
 	sign.text = "10000 AVALON"
-	sign.position = Vector3(-hx - 1.6, ROOF_Y - 2.2, 0)
+	sign.position = Vector3(-hx - 1.9, ROOF_Y - 3.4, 0)
 	sign.font_size = 72
 	sign.modulate = Color("ffb703")
 	sign.outline_modulate = Color.BLACK

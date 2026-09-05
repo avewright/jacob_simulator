@@ -88,8 +88,8 @@ func _shell() -> void:
 	for cz in [-4.6, 4.6]:
 		_box(Vector3(hx + 3.8, DOOR_H * 0.5, cz), Vector3(0.28, DOOR_H + 0.6, 0.28), _panel, true)
 
-	_label("WHOLE FOODS", Vector3(hx + 0.6, H + 1.1, 0), 96, Color("f1faee"), -90.0)
-	_label("M A R K E T", Vector3(hx + 0.6, H + 0.2, 0), 44, Color("bfe3d0"), -90.0)
+	_label("WHOLE FOODS", Vector3(hx + 0.6, H + 1.1, 0), 96, Color("f1faee"), 90.0)
+	_label("M A R K E T", Vector3(hx + 0.6, H + 0.2, 0), 44, Color("bfe3d0"), 90.0)
 
 
 func _entrance() -> void:

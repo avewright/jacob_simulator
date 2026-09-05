@@ -152,7 +152,6 @@ func _perimeter() -> void:
 	sign.position = Vector3(-11.0, 1.15, 18.68)
 	sign.font_size = 44
 	sign.modulate = Color("4a4640")
-	sign.rotation_degrees.y = 180.0
 	add_child(sign)
 
 	# Carriage lamps flanking the drive.
@@ -214,13 +213,14 @@ func _unit(at: Vector3, yaw: float, is_home: bool) -> void:
 		for r in 4:
 			_at(unit, Vector3(0, 0.35 + r * 0.6, -hd - 0.2), Vector3(GAR_W - 0.15, 0.05, 0.03), _mat(Color("3a3d40"), 0.6), false)
 
-	# Raised stoop reached by an exterior stair run, as in the photos.
-	_at(unit, Vector3(hw - 1.5, STOOP_Y - 0.08, -hd - 0.9), Vector3(2.4, 0.16, 1.8), _trim, true)
-	for s in 10:
-		var h := STOOP_Y * (10 - s) / 10.0
-		_at(unit, Vector3(hw - 1.5, h * 0.5, -hd - 1.9 - s * 0.34), Vector3(2.0, h, 0.34), _trim, true)
-	for side in [-1.1, 1.1]:
-		_at(unit, Vector3(hw - 1.5 + side, STOOP_Y + 0.5, -hd - 1.4), Vector3(0.08, 1.0, 2.6), _dark, false)
+	# Raised stoop on a walkable ramp, with nosings so it still reads as stairs.
+	_at(unit, Vector3(hw - 1.5, STOOP_Y - 0.08, -hd - 0.9), Vector3(2.0, 0.16, 1.8), _trim, true)
+	_stoop_ramp(unit, hw - 1.5, 1.8, -hd - 1.8, -hd - 7.4, STOOP_Y, 0.02)
+	for st in 9:
+		var t: float = (st + 1) / 10.0
+		_at(unit, Vector3(hw - 1.5, 0.12 + (1.0 - t) * STOOP_Y, -hd - 1.8 - t * 5.6), Vector3(2.0, 0.06, 0.12), _trim, false)
+	for side in [-1.05, 1.05]:
+		_at(unit, Vector3(hw - 1.5 + side, STOOP_Y * 0.5 + 0.9, -hd - 4.6), Vector3(0.08, 0.08, 6.4), _dark, false)
 
 	# Front door in the raised elevation.
 	if not is_home:
@@ -236,13 +236,40 @@ func _unit(at: Vector3, yaw: float, is_home: bool) -> void:
 	_at(unit, Vector3(0, EAVE + 1.2, -hd - 0.05), Vector3(0.5, 0.5, 0.08), _dark, false)
 
 
+func _stoop_ramp(parent: Node3D, x_centre: float, width: float, z_from: float, z_to: float, y_from: float, y_to: float) -> void:
+	var run := absf(z_to - z_from)
+	var rise := absf(y_to - y_from)
+	var slope := atan2(rise, run)
+	var climbs := (z_to > z_from) == (y_to > y_from)
+	var ang := -slope if climbs else slope
+	var thick := 0.28
+	var body := StaticBody3D.new()
+	body.collision_layer = 1
+	body.collision_mask = 0
+	body.position = Vector3(x_centre, (y_from + y_to) * 0.5 - thick * 0.5 * cos(ang), (z_from + z_to) * 0.5)
+	body.rotation.x = ang
+	var size := Vector3(width, thick, sqrt(run * run + rise * rise))
+	var col := CollisionShape3D.new()
+	var shape := BoxShape3D.new()
+	shape.size = size
+	col.shape = shape
+	body.add_child(col)
+	var mi := MeshInstance3D.new()
+	var box := BoxMesh.new()
+	box.size = size
+	mi.mesh = box
+	mi.material_override = _trim
+	body.add_child(mi)
+	parent.add_child(body)
+
+
 func _gable(parent: Node3D, x_centre: float, width: float, half_depth: float, ridge_y: float, eave_y: float) -> void:
 	for dir in [-1.0, 1.0]:
 		var run := half_depth
 		var rise := ridge_y - eave_y
 		var slope := atan2(rise, run)
-		# Rx(-slope) sends local +Z up; flip the sign for the far side.
-		var ang := -slope if dir > 0.0 else slope
+		# The +Z half runs downhill from the ridge, so it takes +slope.
+		var ang := slope if dir > 0.0 else -slope
 		var body := StaticBody3D.new()
 		body.collision_layer = 1
 		body.collision_mask = 0
@@ -403,7 +430,7 @@ func _gable_at(x_centre: float, z_centre: float, width: float, half_depth: float
 	for dir in [-1.0, 1.0]:
 		var rise := ridge_y - eave_y
 		var slope := atan2(rise, half_depth)
-		var ang := -slope if dir > 0.0 else slope
+		var ang := slope if dir > 0.0 else -slope
 		var body := StaticBody3D.new()
 		body.collision_layer = 1
 		body.collision_mask = 0
