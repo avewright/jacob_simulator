@@ -29,7 +29,6 @@ func _ready() -> void:
 	_city()
 	_trees()
 	_streetlights()
-	_parked_cars()
 	_pickups()
 
 
@@ -214,9 +213,7 @@ func _work_campus() -> void:
 			var x := 10.0 + row * 8.0
 			_mesh_box(Vector3(x, 0.09, z), Vector3(5.2, 0.02, 0.08), _paint)
 			_mesh_box(Vector3(x, 0.09, z + 2.6), Vector3(5.2, 0.02, 0.08), _paint)
-	# Office tower and garage are their own scenes; just reserve their plots
-	# and point at the door.
-	_sign(Vector3(31.0, 3.4, 0), "WORK\nNORTH POINT")
+	# Office tower and garage are their own scenes and carry their own signage.
 
 
 func _wall(pos: Vector3, size: Vector3) -> void:
@@ -245,19 +242,6 @@ func _static_box_raw(pos: Vector3, size: Vector3, material: Material) -> StaticB
 
 func _hedge(pos: Vector3, size: Vector3) -> void:
 	_static_box_raw(pos, size, _mat(Color("1a4a1c"), 0.9)).add_to_group("smashable")
-
-
-func _sign(pos: Vector3, text: String) -> void:
-	_static_box_raw(pos + Vector3(0, -2.4, 0), Vector3(0.18, 2.4, 0.18), _mat(Color("222222"), 0.4, 0.2))
-	var lab := Label3D.new()
-	lab.text = text
-	lab.position = pos
-	lab.font_size = 72
-	lab.modulate = Color("ffb703")
-	lab.outline_modulate = Color.BLACK
-	lab.outline_size = 8
-	lab.billboard = BaseMaterial3D.BILLBOARD_ENABLED
-	add_child(lab)
 
 
 func _city() -> void:
@@ -304,7 +288,7 @@ func _blocked(x: float, z: float) -> bool:
 	# Super Strikers arcade plot.
 	if x > 14.0 and x < 48.0 and z > -40.0 and z < -20.0:
 		return true
-	# North Point tower plot.
+	# 10000 Avalon tower plot.
 	if x > 30.0 and x < 62.0 and absf(z) < 14.0:
 		return true
 	# Parking garage plot.
@@ -420,7 +404,7 @@ func _streetlights() -> void:
 		if absf(i) < 22.0:
 			i += 36.0
 			continue
-		for side in [-16.0, 16.0]:
+		for side in [-17.4, 17.4]:
 			var post := StaticBody3D.new()
 			post.set_script(lamp_scene)
 			post.position = Vector3(side, 0, i)
@@ -428,23 +412,6 @@ func _streetlights() -> void:
 			post.rotation_degrees.y = 0.0 if side < 0.0 else 180.0
 			add_child(post)
 		i += 36.0
-
-
-func _parked_cars() -> void:
-	var colors := [Color("2b4c7e"), Color("c4c4c4"), Color("1f1f1f"), Color("8a2a2a")]
-	for i in 3:
-		var z := -8.0 + i * 6.5
-		if i == 1:
-			continue
-		var body := MeshInstance3D.new()
-		var box := BoxMesh.new()
-		box.size = Vector3(1.7, 0.5, 3.6)
-		body.mesh = box
-		var mat := _mat(colors[i], 0.3, 0.25)
-		mat.clearcoat_enabled = true
-		body.material_override = mat
-		body.position = Vector3(10.0, 0.4, z)
-		add_child(body)
 
 
 func _pickups() -> void:

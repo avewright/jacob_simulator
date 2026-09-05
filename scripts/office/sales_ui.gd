@@ -1,6 +1,6 @@
 extends CanvasLayer
 
-# Northwind CRM — a Salesforce-shaped console.
+# Kahua's CRM — Salesforce.
 #
 # A record starts as a Lead. Working it converts it to an Opportunity, which
 # then walks the standard stage ladder (Prospecting -> Qualification -> Needs
@@ -23,7 +23,7 @@ const STAGES := [
 # Per stage: [what you say, quality] — only one reply fits the stage you're in.
 const SCRIPTS := [
 	[
-		["\"Hi, it's Jacob at Northwind — did I catch you at an okay time?\"", "good"],
+		["\"Hi, it's Jacob at Kahua — did I catch you at an okay time?\"", "good"],
 		["\"Hi, I'll be quick, I know you're busy.\"", "ok"],
 		["\"Hi! Do you want to hear about our platform?\"", "bad"],
 	],
@@ -66,7 +66,7 @@ func _ready() -> void:
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	_build()
 	_refresh()
-	_post("Logged in as jacob@northwind.com. %d records in your queue." % GameState.sales_leads.size())
+	_post("Logged in as jacob@kahua.com. %d records in your queue." % GameState.sales_leads.size())
 
 
 func _input(event: InputEvent) -> void:
@@ -205,13 +205,13 @@ func _build() -> void:
 	bar.add_child(bar_row)
 
 	var cloud := Label.new()
-	cloud.text = "☁  Northwind CRM"
+	cloud.text = "☁  Salesforce"
 	cloud.add_theme_font_size_override("font_size", 20)
 	cloud.add_theme_color_override("font_color", Color.WHITE)
 	bar_row.add_child(cloud)
 
 	var tab := Label.new()
-	tab.text = "Sales  ›  Leads & Opportunities"
+	tab.text = "Kahua's CRM  ›  Sales  ›  Leads & Opportunities"
 	tab.add_theme_color_override("font_color", Color("9fc6ea"))
 	bar_row.add_child(tab)
 

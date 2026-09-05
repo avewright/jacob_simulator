@@ -55,16 +55,16 @@ func _physics_process(delta: float) -> void:
 
 	var want_g := 0.0
 	var g_probe := Vector3(HOME.x + UNIT_W * 0.5 + 1.5, 0, HOME.z)
-	if car and GameState.in_car and _flat(car, g_probe) < 11.0:
+	if car and GameState.in_car and _flat(car, g_probe) < 13.0:
 		want_g = 1.0
-	elif player and not GameState.in_car and _flat(player, g_probe) < 6.0:
+	elif player and not GameState.in_car and _flat(player, g_probe) < 7.0:
 		want_g = 1.0
 	_g_open = move_toward(_g_open, want_g, 2.2 * delta)
 	if _garage:
 		_garage.position.y = GAR_H * 0.5 + _g_open * (GAR_H - 0.15)
 
 	var want_f := 0.0
-	if player and not GameState.in_car and _flat(player, Vector3(HOME.x + UNIT_W * 0.5 + 2.0, 0, 15.1)) < 5.0:
+	if player and not GameState.in_car and _flat(player, Vector3(HOME.x + UNIT_W * 0.5 + 2.0, 0, 15.1)) < 6.5:
 		want_f = 1.0
 	_f_open = move_toward(_f_open, want_f, 3.0 * delta)
 	if _front:
@@ -78,9 +78,9 @@ func _flat(who: Node3D, local_point: Vector3) -> float:
 
 func _make_mats() -> void:
 	_stucco = _mat(Color("f2f0ea"), 0.88)
-	_roof = _mat(Color("3b3d3f"), 0.95)
+	_roof = _mat(Color("5c5f62"), 0.94)
 	_trim = _mat(Color("e8e6df"), 0.7)
-	_dark = _mat(Color("2a2d30"), 0.55)
+	_dark = _mat(Color("3a3e42"), 0.6)
 	_paver = _mat(Color("9d968c"), 0.92)
 	_shrub = _mat(Color("2f5f31"), 0.95)
 	_wall_in = _mat(Color("efe9dd"), 0.85)
@@ -117,13 +117,21 @@ func _ground() -> void:
 	col.shape = cyl
 	body.add_child(col)
 	add_child(body)
-	_box(Vector3(0, 0.52, 2.0), Vector3(7.6, 0.06, 7.6), _mat(Color("5a4636"), 0.95), false)
-	for i in 5:
-		var a := TAU * i / 5.0
-		_bush(Vector3(sin(a) * 2.6, 0.5, 2.0 + cos(a) * 2.6), 0.55)
-	_box(Vector3(0, 2.2, 2.0), Vector3(0.34, 3.4, 0.34), _mat(Color("4a311f"), 0.92), true)
+	var soil := MeshInstance3D.new()
+	var disc := CylinderMesh.new()
+	disc.top_radius = 3.9
+	disc.bottom_radius = 3.9
+	disc.height = 0.06
+	soil.mesh = disc
+	soil.material_override = _mat(Color("5a4636"), 0.95)
+	soil.position = Vector3(0, 0.52, 2.0)
+	add_child(soil)
+	for i in 6:
+		var a := TAU * i / 6.0
+		_bush(Vector3(sin(a) * 2.7, 0.62, 2.0 + cos(a) * 2.7), 0.5)
+	_box(Vector3(0, 1.55, 2.0), Vector3(0.26, 2.1, 0.26), _mat(Color("4a311f"), 0.92), true)
 	for k in 3:
-		_globe(Vector3(0, 4.0 + k * 0.5, 2.0), 1.2 + k * 0.14, _mat(Color("2a5f26"), 0.9))
+		_globe(Vector3(0, 2.7 + k * 0.34, 2.0), 0.95 - k * 0.16, _mat(Color("2a5f26"), 0.9))
 
 
 func _perimeter() -> void:
@@ -208,7 +216,7 @@ func _unit(at: Vector3, yaw: float, is_home: bool) -> void:
 	# Raised stoop reached by an exterior stair run, as in the photos.
 	_at(unit, Vector3(hw - 1.5, STOOP_Y - 0.08, -hd - 0.9), Vector3(2.4, 0.16, 1.8), _trim, true)
 	for s in 10:
-		var h := STOOP_Y * (s + 1) / 10.0
+		var h := STOOP_Y * (10 - s) / 10.0
 		_at(unit, Vector3(hw - 1.5, h * 0.5, -hd - 1.9 - s * 0.34), Vector3(2.0, h, 0.34), _trim, true)
 	for side in [-1.1, 1.1]:
 		_at(unit, Vector3(hw - 1.5 + side, STOOP_Y + 0.5, -hd - 1.4), Vector3(0.08, 1.0, 2.6), _dark, false)
@@ -255,10 +263,10 @@ func _gable(parent: Node3D, x_centre: float, width: float, half_depth: float, ri
 
 
 func _window(parent: Node3D, at: Vector3) -> void:
-	_at(parent, at, Vector3(0.95, 1.35, 0.08), _trim, false)
-	_at(parent, at + Vector3(0, 0, -0.03), Vector3(0.78, 1.18, 0.05), _glass, false)
-	for sx in [-0.68, 0.68]:
-		_at(parent, at + Vector3(sx, 0, 0.01), Vector3(0.3, 1.35, 0.06), _dark, false)
+	_at(parent, at, Vector3(0.8, 1.15, 0.07), _trim, false)
+	_at(parent, at + Vector3(0, 0, -0.03), Vector3(0.62, 0.98, 0.04), _glass, false)
+	for sx in [-0.56, 0.56]:
+		_at(parent, at + Vector3(sx, 0, 0.01), Vector3(0.22, 1.15, 0.05), _dark, false)
 
 
 # ------------------------------------------------------------------ home
@@ -325,8 +333,8 @@ func _home_interior() -> void:
 	_ramp_x(dz, 1.8, -5.0, -10.6, 0.02, f1)
 	_box(Vector3(-10.95, f1 - 0.08, dz), Vector3(1.3, 0.16, 1.8), _trim, true)
 	for st in 9:
-		var t := (st + 1) / 10.0
-		_box(Vector3(-5.0 - t * 5.6, 0.05 + t * f1, dz), Vector3(0.1, 0.05, 1.8), _trim, false)
+		var t: float = (st + 1) / 10.0
+		_box(Vector3(-5.0 - t * 5.6, 0.12 + t * f1, dz), Vector3(0.12, 0.06, 1.8), _trim, false)
 	for side in [-0.95, 0.95]:
 		_box(Vector3(-8.0, f1 * 0.5 + 0.9, dz + side), Vector3(6.4, 0.08, 0.08), _dark, false)
 

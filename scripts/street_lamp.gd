@@ -29,7 +29,9 @@ func _physics_process(delta: float) -> void:
 	# Topple over about the base, then rest.
 	_fall = minf(_fall + delta * 1.9, 1.0)
 	var ease := 1.0 - pow(1.0 - _fall, 3.0)
-	_pivot.rotation = _fall_dir * (ease * PI * 0.5)
+	# Rotate about the fall axis properly. Assigning the axis scaled by the
+	# angle to `rotation` treats it as Euler XYZ, which skews any diagonal fall.
+	_pivot.basis = Basis(_fall_dir, ease * PI * 0.5)
 	if _fall >= 1.0:
 		set_physics_process(false)
 
@@ -44,8 +46,8 @@ func hit(from: Vector3) -> void:
 	if flat.length_squared() < 0.001:
 		flat = Vector3.FORWARD
 	flat = flat.normalized()
-	# Fall away from the impact: rotate about the axis perpendicular to it.
-	_fall_dir = Vector3(flat.z, 0.0, -flat.x)
+	# Fall away from the impact: spin about the horizontal axis square to it.
+	_fall_dir = Vector3(flat.z, 0.0, -flat.x).normalized()
 	set_lit(false)
 	if _bulb_mat:
 		_bulb_mat.emission_energy_multiplier = 0.0

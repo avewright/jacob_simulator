@@ -1,8 +1,8 @@
 extends Node3D
 
-# North Point tower. Local space: origin at the building centre on the ground,
-# west wall (the entrance) at x = -W/2. Three physical levels, labelled the way
-# the elevator panel labels them.
+# 10000 Building, Avalon — Kahua's offices. Local space: origin at the building
+# centre on the ground, west wall (the entrance) at x = -W/2. Three physical
+# levels, labelled the way the elevator panel labels them.
 #
 # Stair shaft is a hole cut through every slab above the lobby, with switchback
 # ramps inside it. Ramps, not steps: CharacterBody3D has no step climbing.
@@ -187,7 +187,7 @@ func _build_shell() -> void:
 			_box(Vector3(cx, ROOF_Y + 0.7, cz), Vector3(0.22, 1.8, 0.22), _mat(Color("3c4247"), 0.6, 0.3), false)
 
 	var sign := Label3D.new()
-	sign.text = "NORTH POINT"
+	sign.text = "10000 AVALON"
 	sign.position = Vector3(-hx - 0.3, ROOF_Y - 1.6, 0)
 	sign.font_size = 96
 	sign.modulate = Color("ffb703")
@@ -281,6 +281,16 @@ func _build_slabs() -> void:
 		label.rotation_degrees.y = -90.0
 		add_child(label)
 
+	var tenant := Label3D.new()
+	tenant.text = "KAHUA"
+	tenant.position = Vector3(-W * 0.5 - 0.35, 5.6, -3.2)
+	tenant.font_size = 52
+	tenant.modulate = Color("f1faee")
+	tenant.outline_modulate = Color.BLACK
+	tenant.outline_size = 8
+	tenant.rotation_degrees.y = -90.0
+	add_child(tenant)
+
 	var lobby_label := Label3D.new()
 	lobby_label.text = "LOBBY"
 	lobby_label.position = Vector3(-W * 0.5 + 1.2, 3.6, 0)
@@ -366,7 +376,7 @@ func _fit_lobby() -> void:
 		_box(Vector3(-11.5, y + 1.1, pz), Vector3(0.8, 1.2, 0.8), _mat(Color("2f6d34"), 0.9), false)
 
 	var dir := Label3D.new()
-	dir.text = "LOBBY\n4TH — OPERATIONS\n6TH — SALES FLOOR"
+	dir.text = "KAHUA\nLOBBY — RECEPTION\n4TH — OPERATIONS\n6TH — SALES FLOOR"
 	dir.position = Vector3(-5.2, y + 2.6, 0)
 	dir.font_size = 40
 	dir.modulate = Color("ffb703")
