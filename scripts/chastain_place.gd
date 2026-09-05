@@ -47,6 +47,7 @@ func _ready() -> void:
 	_row_back()
 	_home_interior()
 	_jacks_suburban()
+	_jack()
 
 
 func _physics_process(delta: float) -> void:
@@ -458,6 +459,36 @@ func _ramp_c(x_centre: float, width: float, z_from: float, z_to: float, y_from: 
 	mi.material_override = _wall_in
 	body.add_child(mi)
 	add_child(body)
+
+
+func _jack() -> void:
+	# The roommate. Lives in the living room, does not get up.
+	var jack := StaticBody3D.new()
+	jack.collision_layer = 1
+	jack.collision_mask = 0
+	jack.position = Vector3(-14.4, STOOP_Y, 11.4)
+	jack.rotation_degrees.y = -90.0
+	jack.add_to_group("office_npc")
+	jack.set_script(load("res://scripts/office/office_npc.gd"))
+	add_child(jack)
+	jack.setup({
+		"name": "Jack — Roommate",
+		"shirt": Color("6b3f2a"),
+		"hair": Color("2b1f18"),
+		"trousers": Color("454b3a"),
+		"lines": [
+			"Don't. I'm listening to a podcast about a man who ate a plane.",
+			"I moved your bed. It was in my feng shui.",
+			"There's no milk. There was never milk. Stop bringing it up.",
+			"I parked fine. The lines are a suggestion. Look it up.",
+			"I've been awake since two. Not on purpose. Anyway.",
+			"You smell like a lobby. Did you talk to that receptionist again?",
+			"I put a raw egg in the freezer to see what happens. Do not open the freezer.",
+			"Rent's late. I'm not covering you again. I did that once, in a dream.",
+			"If anyone calls asking for Jack, I'm in Peru. I'm not, but say it.",
+			"Cool. Great chat. You can go now.",
+		],
+	})
 
 
 func _jacks_suburban() -> void:

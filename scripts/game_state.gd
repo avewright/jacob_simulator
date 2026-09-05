@@ -17,6 +17,8 @@ const SAVE_PATH := "user://save.json"
 const START_MONEY := 420
 const START_FUEL := 78.0
 const CLOTHES_COST := 80
+const SODA_PRICE := 3
+const CANDY_PRICE := 2
 const SALES_QUOTA := 4
 # contact, account, amount, lead source, close date
 const LEAD_POOL := [
@@ -65,6 +67,8 @@ var objective: String = "You're in your underwear. Buy clothes, then go to work.
 ## tracking their own timers.
 var clock: float = 8.0
 var day: int = 1
+var sodas: int = 0
+var candy: int = 0
 
 var sales_leads: Array = []
 var sales_calls: int = 0
@@ -138,6 +142,8 @@ func reset_new_game() -> void:
 	car_health = 100.0
 	clock = 8.0
 	day = 1
+	sodas = 0
+	candy = 0
 	sales_leads = []
 	sales_calls = 0
 	sales_emails = 0

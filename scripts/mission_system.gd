@@ -3,15 +3,15 @@ extends Node3D
 const MISSIONS := [
 	{
 		"id": "clothes",
-		"label": "STORE — CLOTHES",
-		"hint": "You're in your underwear. Buy clothes (E).",
-		"pos": Vector3(26, 0, 10),
+		"label": "WHOLE FOODS",
+		"hint": "You're in your underwear. Whole Foods sells apparel (E).",
+		"pos": Vector3(-52, 0, 10),
 		"color": Color("e63946"),
 		"kind": "shop",
 	},
 	{
 		"id": "north_point",
-		"label": "WORK — CLOCK IN",
+		"label": "KAHUA — CLOCK IN",
 		"hint": "Walk into the office and clock in (E).",
 		"pos": Vector3(46, 0, 0),
 		"color": Color("ffb703"),
@@ -177,32 +177,10 @@ func _spawn(spec: Dictionary) -> void:
 	area.collision_layer = 0
 	area.collision_mask = 0
 	area.add_to_group("mission_marker")
-	var pillar := MeshInstance3D.new()
-	var cyl := CylinderMesh.new()
-	cyl.top_radius = 0.42
-	cyl.bottom_radius = 0.42
-	cyl.height = 7.2
-	pillar.mesh = cyl
-	pillar.position.y = 3.6
-	var mat := StandardMaterial3D.new()
-	mat.albedo_color = spec.color
-	mat.emission_enabled = true
-	mat.emission = spec.color
-	mat.emission_energy_multiplier = 2.2
-	pillar.material_override = mat
-	area.add_child(pillar)
-	var ring := MeshInstance3D.new()
-	var torus := TorusMesh.new()
-	torus.inner_radius = 1.6
-	torus.outer_radius = 2.1
-	ring.mesh = torus
-	ring.position.y = 0.08
-	ring.material_override = mat
-	area.add_child(ring)
 	var label := Label3D.new()
 	label.text = spec.label
-	label.position.y = 8.2
-	label.font_size = 64
+	label.position.y = 3.4
+	label.font_size = 34
 	label.modulate = Color.WHITE
 	label.outline_modulate = Color.BLACK
 	label.billboard = BaseMaterial3D.BILLBOARD_ENABLED

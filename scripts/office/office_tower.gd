@@ -186,10 +186,12 @@ func _build_shell() -> void:
 		for cz in [-hz + 0.2, -hz + 4.8]:
 			_box(Vector3(cx, ROOF_Y + 0.7, cz), Vector3(0.22, 1.8, 0.22), _mat(Color("3c4247"), 0.6, 0.3), false)
 
+	# Clear of the cladding: piers reach x = hx + 0.33 and the cornice
+	# x = hx + 1.15, so anything closer than that renders half-buried.
 	var sign := Label3D.new()
 	sign.text = "10000 AVALON"
-	sign.position = Vector3(-hx - 0.3, ROOF_Y - 1.6, 0)
-	sign.font_size = 96
+	sign.position = Vector3(-hx - 1.6, ROOF_Y - 2.2, 0)
+	sign.font_size = 72
 	sign.modulate = Color("ffb703")
 	sign.outline_modulate = Color.BLACK
 	sign.outline_size = 10
@@ -283,8 +285,8 @@ func _build_slabs() -> void:
 
 	var tenant := Label3D.new()
 	tenant.text = "KAHUA"
-	tenant.position = Vector3(-W * 0.5 - 0.35, 5.6, -3.2)
-	tenant.font_size = 52
+	tenant.position = Vector3(-W * 0.5 - 1.6, DOOR_H + 1.9, 0.0)
+	tenant.font_size = 56
 	tenant.modulate = Color("f1faee")
 	tenant.outline_modulate = Color.BLACK
 	tenant.outline_size = 8
@@ -391,11 +393,13 @@ func _fit_lobby() -> void:
 		"shirt": Color("8c2f47"),
 		"hair": Color("14100f"),
 		"lines": [
-			"Well. Look who finally walked in. Sales is on six — but you knew that.",
-			"You clean up nice for someone who was in his underwear last week.",
-			"I'll buzz you up. Not because I have to. Because I like you.",
-			"If Ralph asks, you were here at nine. That's between us.",
-			"Six. Go on. I'll still be here when you come back down.",
+			"There he is. I was starting to think I'd have to come find you.",
+			"Sixth floor, sweetheart. I'd walk you up, but somebody has to sit here looking bored.",
+			"You know you're the only reason I take the early shift.",
+			"That shirt. Somebody dressed you well today. Was it you? Please say it was you.",
+			"Go close something impressive so I have an excuse to congratulate you properly.",
+			"If Ralph asks, you were here at nine. If anyone else asks, I've never met you.",
+			"Badge in. Slowly. I've got nowhere to be.",
 		],
 	})
 

@@ -8,7 +8,7 @@
 [ext_resource type="PackedScene" path="res://scenes/vehicles/camry.tscn" id="6_camry"]
 [ext_resource type="Script" path="res://scripts/camera_rig.gd" id="7_cam"]
 [ext_resource type="PackedScene" path="res://scenes/ui/hud.tscn" id="8_hud"]
-[ext_resource type="Script" path="res://scripts/clothing_shop.gd" id="9_shop"]
+[ext_resource type="Script" path="res://scripts/whole_foods.gd" id="9_shop"]
 [ext_resource type="Script" path="res://scripts/soccer_arcade.gd" id="10_arcade"]
 [ext_resource type="Script" path="res://scripts/office/office_tower.gd" id="11_office"]
 [ext_resource type="Script" path="res://scripts/parking_garage.gd" id="12_garage"]
@@ -73,8 +73,8 @@ script = ExtResource("3_missions")
 [node name="Traffic" type="Node3D" parent="."]
 script = ExtResource("4_traffic")
 
-[node name="ClothingShop" type="Node3D" parent="."]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 26, 0, 10)
+[node name="WholeFoods" type="Node3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -64, 0, 10)
 script = ExtResource("9_shop")
 
 [node name="OfficeTower" type="Node3D" parent="."]

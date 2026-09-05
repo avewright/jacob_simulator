@@ -78,6 +78,10 @@ func _physics_process(delta: float) -> void:
 		if _arcade_in_range():
 			GameState.enter_arcade()
 			return
+		var shop := _near("store_counter")
+		if shop and String(shop.prompt()) != "":
+			shop.buy()
+			return
 		var desk := _near("sales_terminal")
 		if desk:
 			desk.open()
@@ -211,10 +215,12 @@ func _update_prompt() -> void:
 	if car and car.has_method("in_enter_range") and car.in_enter_range():
 		GameState.prompt = "E  Enter Camry"
 		return
-	var shop := get_tree().get_first_node_in_group("clothing_shop") as Node3D
-	if shop and not GameState.has_clothes and global_position.distance_to(shop.global_position) < 7.0:
-		GameState.prompt = "E  Buy clothes — $%d" % GameState.CLOTHES_COST
-		return
+	var counter := _near("store_counter")
+	if counter:
+		var text := String(counter.prompt())
+		if text != "":
+			GameState.prompt = text
+			return
 	if _arcade_in_range():
 		GameState.prompt = "E  Play Super Strikers"
 		return
