@@ -502,7 +502,10 @@ func _jack() -> void:
 		"name": "Jack — Roommate",
 		"shirt": Color("6b3f2a"),
 		"hair": Color("2b1f18"),
+		"beard": Color("241a13"),
 		"trousers": Color("454b3a"),
+		"build": "broad",
+		"mug": true,
 		"lines": [
 			"Don't. I'm listening to a podcast about a man who ate a plane.",
 			"I moved your bed. It was in my feng shui.",

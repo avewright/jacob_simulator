@@ -12,6 +12,14 @@ const FACE_TEX := preload("res://assets/characters/jacob_face.png")
 ## Nudge in the inspector if the photo lands high, low, or on the back of the head.
 @export var face_offset := Vector3(0.0, 0.06, 0.15)
 @export var face_size := Vector2(0.26, 0.33)
+## Curly brown, off the reference photo. Sits around the face quad rather than
+## over it, and tracks the head bone the same way.
+@export var show_hair := true
+@export var hair_tint := Color("53351f")
+@export var hair_offset := Vector3(0.0, 0.10, 0.0)
+@export var hair_scale := 1.0
+## Company badge on a lanyard, because he works somewhere now.
+@export var show_badge := true
 ## Prints the measured head-bone position once, to dial face_offset in.
 @export var face_debug := false
 
@@ -24,6 +32,7 @@ var _arm_bone: int = -1
 var _arm_rest: Transform3D
 var _skel: Skeleton3D
 var _head_bone: int = -1
+var _hair: Node3D
 
 
 func _ready() -> void:
@@ -209,11 +218,84 @@ func _attach_face() -> void:
 	_face.mesh = quad
 	_face.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	add_child(_face)
+	_build_hair()
+	_build_badge()
 	_update_face()
 	if face_debug:
 		var bone := "none" if _head_bone < 0 else str(_head_bone)
 		print("[jacob_look] head bone=%s local=%s face=%s actor_scale=%s"
 			% [bone, _head_pos(), _face.position, _actor.scale])
+
+
+## A cap of rounded lumps behind and above the face quad — curly, and it
+## leaves the front clear so the photo still reads.
+func _build_hair() -> void:
+	if not show_hair or _hair != null:
+		return
+	_hair = Node3D.new()
+	_hair.name = "Hair"
+	add_child(_hair)
+	var mat := StandardMaterial3D.new()
+	mat.albedo_color = hair_tint
+	mat.roughness = 0.92
+	var lumps := [
+		[Vector3(0.0, 0.052, -0.012), 0.098],
+		[Vector3(-0.058, 0.036, -0.022), 0.076],
+		[Vector3(0.058, 0.036, -0.022), 0.076],
+		[Vector3(0.0, 0.028, -0.082), 0.082],
+		[Vector3(-0.072, 0.004, -0.052), 0.066],
+		[Vector3(0.072, 0.004, -0.052), 0.066],
+		[Vector3(-0.046, 0.058, 0.042), 0.062],
+		[Vector3(0.046, 0.058, 0.042), 0.062],
+		[Vector3(0.0, 0.066, 0.032), 0.058],
+	]
+	for lump in lumps:
+		var mi := MeshInstance3D.new()
+		var sp := SphereMesh.new()
+		sp.radius = float(lump[1]) * hair_scale
+		sp.height = float(lump[1]) * 2.0 * hair_scale
+		sp.radial_segments = 10
+		sp.rings = 6
+		mi.mesh = sp
+		mi.material_override = mat
+		mi.position = Vector3(lump[0]) * hair_scale
+		_hair.add_child(mi)
+
+
+func _build_badge() -> void:
+	if not show_badge:
+		return
+	var cord := StandardMaterial3D.new()
+	cord.albedo_color = Color("1d3557")
+	cord.roughness = 0.85
+	for sx in [-0.07, 0.07]:
+		var strap := MeshInstance3D.new()
+		var b := BoxMesh.new()
+		b.size = Vector3(0.016, 0.17, 0.016)
+		strap.mesh = b
+		strap.material_override = cord
+		strap.position = Vector3(sx, 1.36, 0.11)
+		add_child(strap)
+	var card := MeshInstance3D.new()
+	var cb := BoxMesh.new()
+	cb.size = Vector3(0.085, 0.12, 0.008)
+	card.mesh = cb
+	var cm := StandardMaterial3D.new()
+	cm.albedo_color = Color("f1faee")
+	cm.roughness = 0.4
+	card.material_override = cm
+	card.position = Vector3(0.0, 1.21, 0.115)
+	add_child(card)
+	var stripe := MeshInstance3D.new()
+	var sb := BoxMesh.new()
+	sb.size = Vector3(0.085, 0.028, 0.004)
+	stripe.mesh = sb
+	var sm := StandardMaterial3D.new()
+	sm.albedo_color = Color("0176d3")
+	sm.roughness = 0.4
+	stripe.material_override = sm
+	stripe.position = Vector3(0.0, 1.255, 0.12)
+	add_child(stripe)
 
 
 func _head_pos() -> Vector3:
@@ -225,8 +307,11 @@ func _head_pos() -> Vector3:
 func _update_face() -> void:
 	if _face == null:
 		return
-	_face.position = _head_pos() + face_offset
+	var head := _head_pos()
+	_face.position = head + face_offset
 	_face.rotation = Vector3.ZERO
+	if _hair:
+		_hair.position = head + hair_offset
 
 
 func _find_skeleton(root: Node) -> Skeleton3D:
