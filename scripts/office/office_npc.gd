@@ -9,20 +9,87 @@ extends StaticBody3D
 # beard (Color), mug (bool), headset (bool), build ("slim"|"broad").
 
 const RANGE := 3.2
+const WALK := 1.5
 
 var npc_name: String = "Coworker"
 var lines: Array = []
+## Optional day plan. Each slot is {from, to, at, say?} in hours and parent
+## space; outside every slot the person has gone home.
+var schedule: Array = []
+
 var _next: int = 0
+var _home := Vector3.ZERO
+var _here: bool = true
+var _slot: Dictionary = {}
+var _col: CollisionShape3D
+var _tag: Label3D
 
 
 func setup(spec: Dictionary) -> void:
 	npc_name = String(spec.get("name", "Coworker"))
 	lines = spec.get("lines", [])
+	schedule = spec.get("schedule", [])
+	_home = position
 	_build(spec)
+	if not schedule.is_empty():
+		set_process(true)
+		_settle()
+	else:
+		set_process(false)
+
+
+func _process(delta: float) -> void:
+	var want := _slot_for(GameState.clock)
+	if want != _slot:
+		_slot = want
+	if _slot.is_empty():
+		_present(false)
+		return
+	_present(true)
+	var target: Vector3 = _slot.get("at", _home)
+	var before := position
+	position = position.move_toward(target, WALK * delta)
+	var moved := position - before
+	if moved.length_squared() > 0.000001:
+		rotation.y = lerp_angle(rotation.y, atan2(moved.x, moved.z), 1.0 - exp(-8.0 * delta))
+
+
+## The slot covering this hour, or an empty dictionary if they are off.
+func _slot_for(hour: float) -> Dictionary:
+	for entry in schedule:
+		var from: float = float(entry.get("from", 0.0))
+		var to: float = float(entry.get("to", 24.0))
+		if from <= to:
+			if hour >= from and hour < to:
+				return entry
+		elif hour >= from or hour < to:      # slot wraps past midnight
+			return entry
+	return {}
+
+
+## Put them straight where they should be, rather than walking in from spawn.
+func _settle() -> void:
+	_slot = _slot_for(GameState.clock)
+	if _slot.is_empty():
+		_present(false)
+		return
+	_present(true)
+	position = _slot.get("at", _home)
+
+
+func _present(yes: bool) -> void:
+	if yes == _here:
+		return
+	_here = yes
+	visible = yes
+	if _col:
+		_col.disabled = not yes
+	if _tag:
+		_tag.visible = yes
 
 
 func in_range(who: Node3D) -> bool:
-	if who == null:
+	if who == null or not _here:
 		return false
 	# The tower stacks people directly above each other, so height has to count
 	# or you get prompted for whoever is one floor up.
@@ -33,9 +100,14 @@ func in_range(who: Node3D) -> bool:
 
 
 func talk() -> void:
-	if lines.is_empty():
+	# A slot can carry its own lines — what they say at lunch differs from
+	# what they say at their desk.
+	var say: Array = _slot.get("say", []) if not _slot.is_empty() else []
+	if say.is_empty():
+		say = lines
+	if say.is_empty():
 		return
-	GameState.notice.emit("%s: %s" % [npc_name.split(" —")[0], lines[_next % lines.size()]])
+	GameState.notice.emit("%s: %s" % [npc_name.split(" —")[0], say[_next % say.size()]])
 	_next += 1
 
 
@@ -53,13 +125,13 @@ func _build(spec: Dictionary) -> void:
 	var slim: bool = String(spec.get("build", "")) == "slim"
 	var w: float = 0.62 if broad else (0.5 if slim else 0.56)
 
-	var col := CollisionShape3D.new()
+	_col = CollisionShape3D.new()
 	var caps := CapsuleShape3D.new()
 	caps.radius = 0.34
 	caps.height = 1.74
-	col.shape = caps
-	col.position.y = 0.87
-	add_child(col)
+	_col.shape = caps
+	_col.position.y = 0.87
+	add_child(_col)
 
 	# Legs, with a break at the knee so they are not one slab.
 	for lx in [-0.13, 0.13]:
@@ -161,15 +233,15 @@ func _build(spec: Dictionary) -> void:
 			_part(Vector3(bx, 0.26, -0.01), Vector3(0.2, 0.2, 0.22), felt)
 		_part(Vector3(0, 0.96, 0.145), Vector3(0.11, 0.08, 0.02), _mat(Color("d9b24a"), 0.3, 0.7))
 
-	var tag := Label3D.new()
-	tag.text = npc_name
-	tag.position = Vector3(0, 2.2, 0)
-	tag.font_size = 28
-	tag.modulate = Color("f1faee")
-	tag.outline_modulate = Color.BLACK
-	tag.outline_size = 6
-	tag.billboard = BaseMaterial3D.BILLBOARD_ENABLED
-	add_child(tag)
+	_tag = Label3D.new()
+	_tag.text = npc_name
+	_tag.position = Vector3(0, 2.2, 0)
+	_tag.font_size = 28
+	_tag.modulate = Color("f1faee")
+	_tag.outline_modulate = Color.BLACK
+	_tag.outline_size = 6
+	_tag.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	add_child(_tag)
 
 
 func _part(at: Vector3, size: Vector3, material: Material) -> void:

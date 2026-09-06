@@ -1,4 +1,4 @@
-[gd_scene load_steps=20 format=3]
+[gd_scene load_steps=21 format=3]
 
 [ext_resource type="Script" path="res://scripts/main.gd" id="1_main"]
 [ext_resource type="Script" path="res://scripts/world_builder.gd" id="2_world"]
@@ -17,6 +17,7 @@
 [ext_resource type="Script" path="res://scripts/day_night.gd" id="15_daynight"]
 [ext_resource type="Script" path="res://scripts/tennis_courts.gd" id="16_tennis"]
 [ext_resource type="Script" path="res://scripts/gas_station.gd" id="17_gas"]
+[ext_resource type="Script" path="res://scripts/phone/phone.gd" id="18_phone"]
 
 [sub_resource type="ProceduralSkyMaterial" id="ProceduralSkyMaterial_1"]
 sky_top_color = Color(0.28, 0.52, 0.86, 1)
@@ -62,6 +63,9 @@ transform = Transform3D(1, 0, 0, 0, 0.82, 0.57, 0, -0.57, 0.82, -40, 40, -20)
 light_energy = 0.28
 light_color = Color(0.75, 0.82, 1, 1)
 shadow_enabled = false
+
+[node name="Phone" type="Node" parent="."]
+script = ExtResource("18_phone")
 
 [node name="DayNight" type="Node" parent="."]
 script = ExtResource("15_daynight")

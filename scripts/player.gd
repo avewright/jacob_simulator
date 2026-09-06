@@ -104,6 +104,9 @@ func _physics_process(delta: float) -> void:
 		_recover()
 	visuals.animate(velocity, is_on_floor(), sprinting, wish.length_squared() > 0.001, delta)
 	_tick_wave(delta)
+	if Input.is_action_just_pressed("phone"):
+		_open_phone()
+		return
 	if Input.is_action_just_pressed("wave"):
 		_start_wave()
 	_update_prompt()
@@ -220,6 +223,17 @@ func _process_rush(delta: float) -> void:
 			if _rush <= 0.0 and _voice and not _voice.playing:
 				_say(CRASH_LINE))
 		GameState.notice.emit("...that's worn off.")
+
+
+const PHONE_UI := preload("res://scenes/phone/phone_ui.tscn")
+
+
+func _open_phone() -> void:
+	if _rush > 0.0:
+		GameState.notice.emit("Too jittery to hold a phone.")
+		return
+	var ui := PHONE_UI.instantiate() as CanvasLayer
+	get_tree().current_scene.add_child(ui)
 
 
 func _start_wave() -> void:

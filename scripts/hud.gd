@@ -6,6 +6,7 @@ var _money: Label
 var _fuel: Label
 var _health: Label
 var _clock: Label
+var _texts: Label
 var _state: Label
 var _speed: Label
 var _objective: Label
@@ -47,6 +48,8 @@ func _process(delta: float) -> void:
 		_state.text = "IN UNDERWEAR"
 	_speed.text = ("%d mph" % int(round(GameState.speed_mph))) if GameState.in_car else ""
 	_clock.text = "Day %d  %s" % [GameState.day, GameState.time_string()]
+	var unread := GameState.unread_texts()
+	_texts.text = "✉ %d" % unread if unread > 0 else ""
 	_minimap.queue_redraw()
 
 
@@ -105,6 +108,7 @@ func _build() -> void:
 	_fuel = _pill(top, "78%")
 	_health = _pill(top, "100%")
 	_clock = _pill(top, "8:00 AM")
+	_texts = _pill(top, "")
 	_state = _pill(top, "ON FOOT")
 	_speed = _pill(top, "")
 
@@ -145,7 +149,7 @@ func _build() -> void:
 	_prompt.add_theme_color_override("font_color", GOLD)
 	add_child(_prompt)
 
-	help.text = "WASD move / drive   Mouse steers\nShift sprint  Space jump / handbrake  Q wave\nE Camry / clothes / arcade   R new Camry   Esc pause"
+	help.text = "WASD move / drive   Mouse steers\nShift sprint  Space jump / handbrake  Q wave  P phone\nE Camry / clothes / arcade   R new Camry   Esc pause"
 	help.add_theme_font_size_override("font_size", 13)
 	help.add_theme_color_override("font_color", Color(0.85, 0.85, 0.85, 0.85))
 	add_child(help)

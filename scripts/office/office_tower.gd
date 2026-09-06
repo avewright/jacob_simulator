@@ -379,15 +379,70 @@ func _build_core() -> void:
 
 # ------------------------------------------------------------------ fit-out
 
+## Suspended ceiling with a recessed light grid, plus skirting round the walls.
+## Applied per level so every floor reads as a room rather than a shell.
+func _ceiling(y: float, height: float) -> void:
+	var tile := _mat(Color("d8d6cf"), 0.9)
+	var rail := _mat(Color("9aa0a6"), 0.6, 0.2)
+	var panel := _mat(Color("fdf8e8"), 0.3)
+	panel.emission_enabled = true
+	panel.emission = Color("fff6e0")
+	panel.emission_energy_multiplier = 1.5
+	var top := y + height
+	_box(Vector3(0, top - 0.06, 0), Vector3(W - 1.2, 0.12, D - 1.2), tile, false)
+	# T-bar grid.
+	for gx in range(-2, 3):
+		_box(Vector3(gx * 5.0, top - 0.14, 0), Vector3(0.08, 0.05, D - 1.4), rail, false)
+	for gz in range(-2, 3):
+		_box(Vector3(0, top - 0.14, gz * 4.4), Vector3(W - 1.4, 0.05, 0.08), rail, false)
+	# Recessed panels.
+	for px in [-8.0, -2.0, 4.0]:
+		for pz in [-6.0, 0.0, 6.0]:
+			_box(Vector3(px, top - 0.15, pz), Vector3(2.4, 0.06, 1.1), panel, false)
+	# Skirting.
+	var skirt := _mat(Color("6f7378"), 0.7)
+	for sz in [-D * 0.5 + 0.3, D * 0.5 - 0.3]:
+		_box(Vector3(0, y + 0.08, sz), Vector3(W - 1.0, 0.16, 0.06), skirt, false)
+	for sx in [-W * 0.5 + 0.3, W * 0.5 - 0.3]:
+		_box(Vector3(sx, y + 0.08, 0), Vector3(0.06, 0.16, D - 1.0), skirt, false)
+
+
+## Framed print on a wall.
+func _art(at: Vector3, size: Vector2, tint: Color, face_x: bool) -> void:
+	var frame := _mat(Color("2b2f36"), 0.5)
+	var canvas := _mat(tint, 0.75)
+	if face_x:
+		_box(at, Vector3(0.05, size.y + 0.1, size.x + 0.1), frame, false)
+		_box(at + Vector3(0.03, 0, 0), Vector3(0.02, size.y, size.x), canvas, false)
+	else:
+		_box(at, Vector3(size.x + 0.1, size.y + 0.1, 0.05), frame, false)
+		_box(at + Vector3(0, 0, 0.03), Vector3(size.x, size.y, 0.02), canvas, false)
+
+
+## Keyboard, mouse, mug and a paper stack, so a desk looks worked at.
+func _desk_clutter(at: Vector3, y_top: float) -> void:
+	_box(at + Vector3(-0.15, y_top + 0.02, 0.28), Vector3(0.44, 0.02, 0.16), _mat(Color("2b3038"), 0.5), false)
+	_box(at + Vector3(0.22, y_top + 0.02, 0.3), Vector3(0.07, 0.03, 0.11), _mat(Color("3c434b"), 0.4), false)
+	_box(at + Vector3(-0.62, y_top + 0.05, 0.1), Vector3(0.09, 0.1, 0.09), _mat(Color("e8e4da"), 0.45), false)
+	_box(at + Vector3(0.72, y_top + 0.02, 0.05), Vector3(0.22, 0.03, 0.3), _mat(Color("f4f2ea"), 0.8), false)
+	_box(at + Vector3(0.74, y_top + 0.04, 0.02), Vector3(0.2, 0.02, 0.28), _mat(Color("eceadf"), 0.8), false)
+
+
 func _fit_lobby() -> void:
 	var y: float = FLOORS[0].y
+	_ceiling(y, 4.9)
 	var wood := _mat(Color("6b4a2f"), 0.6)
 	var stone := _mat(Color("d8dbe0"), 0.5)
 	var couch := _mat(Color("2f4858"), 0.75)
 
-	# Reception desk facing the doors.
+	# Reception desk facing the doors, with a raised transaction top.
 	_box(Vector3(-6.0, y + 0.55, 0), Vector3(1.0, 1.1, 5.0), wood, true)
 	_box(Vector3(-6.0, y + 1.14, 0), Vector3(1.4, 0.08, 5.4), stone, true)
+	_box(Vector3(-6.55, y + 0.62, 0), Vector3(0.06, 1.2, 5.1), _mat(Color("cfd3d8"), 0.4, 0.3), false)
+	_box(Vector3(-5.8, y + 1.28, -1.4), Vector3(0.06, 0.36, 0.6), _mat(Color("101820"), 0.25), false)
+	_box(Vector3(-5.85, y + 1.24, 0.9), Vector3(0.16, 0.03, 0.22), _mat(Color("2b3038"), 0.5), false)
+	_art(Vector3(-12.6, y + 2.4, -4.0), Vector2(1.8, 1.2), Color("2f4858"), true)
+	_art(Vector3(-12.6, y + 2.4, 4.0), Vector2(1.8, 1.2), Color("6b4a5a"), true)
 
 	# Waiting area.
 	_box(Vector3(-9.5, y + 0.22, -5.0), Vector3(1.0, 0.44, 3.2), couch, true)
@@ -413,6 +468,13 @@ func _fit_lobby() -> void:
 	_npc({
 		"name": "Myriam — Front Desk",
 		"pos": Vector3(-4.8, y, 0),
+		"schedule": [
+			{"from": 7.0, "to": 12.5, "at": Vector3(-4.8, y, 0)},
+			{"from": 12.5, "to": 13.2, "at": Vector3(-9.0, y, -5.0),
+				"say": ["Lunch. Sit down. I won't bite unless the day gets worse.",
+					"I take it out here. Better view, occasionally."]},
+			{"from": 13.2, "to": 18.0, "at": Vector3(-4.8, y, 0)},
+		],
 		"shirt": Color("8c2f47"),
 		"hair": Color("14100f"),
 		"lanyard": Color("c9a227"),
@@ -431,6 +493,7 @@ func _fit_lobby() -> void:
 
 func _fit_fourth() -> void:
 	var y: float = FLOORS[1].y
+	_ceiling(y, 4.9)
 	var part := _mat(Color("9aa3ad"), 0.8)
 	var wood := _mat(Color("6b4a2f"), 0.6)
 
@@ -460,6 +523,12 @@ func _fit_fourth() -> void:
 		{
 			"name": "Porter — Systems",
 			"pos": Vector3(-9.4, y, 3.0),
+			"schedule": [
+				{"from": 9.5, "to": 13.0, "at": Vector3(-9.4, y, 3.0)},
+				{"from": 13.0, "to": 13.8, "at": Vector3(-8.0, y, -8.0),
+					"say": ["I eat facing the wall. It's quieter."]},
+				{"from": 13.8, "to": 18.0, "at": Vector3(-9.4, y, 3.0)},
+			],
 			"shirt": Color("46506b"),
 			"hair": Color("6b4f2a"),
 			"glasses": true,
@@ -475,6 +544,9 @@ func _fit_fourth() -> void:
 		{
 			"name": "Collin — Data",
 			"pos": Vector3(-4.6, y, 6.4),
+			"schedule": [
+				{"from": 10.0, "to": 19.5, "at": Vector3(-4.6, y, 6.4)},
+			],
 			"shirt": Color("3f6b52"),
 			"hair": Color("c96a2a"),
 			"glasses": true,
@@ -489,6 +561,12 @@ func _fit_fourth() -> void:
 		{
 			"name": "Wei — Infrastructure",
 			"pos": Vector3(0.4, y, 3.0),
+			"schedule": [
+				{"from": 11.0, "to": 22.0, "at": Vector3(0.4, y, 3.0),
+					"say": ["Deploy window is at eleven. At night. Obviously.",
+						"I'm here late because someone is always here late.",
+						"Prod's on fire. Always is."]},
+			],
 			"shirt": Color("55606d"),
 			"skin": Color("e8c9a0"),
 			"hair": Color("100d0c"),
@@ -507,6 +585,7 @@ func _fit_fourth() -> void:
 
 func _fit_sixth() -> void:
 	var y: float = FLOORS[2].y
+	_ceiling(y, 4.9)
 	var wood := _mat(Color("6b4a2f"), 0.6)
 	var grey := _mat(Color("3f4650"), 0.55)
 	var screen := _mat(Color("101820"), 0.25)
@@ -515,11 +594,12 @@ func _fit_sixth() -> void:
 	screen.emission_energy_multiplier = 1.4
 	var plant := _mat(Color("2f6d34"), 0.9)
 
-	_desk(Vector3(-9.0, y, -5.0), wood, screen, true)
-	_desk(Vector3(-9.0, y, 0.0), wood, screen, false)
-	_desk(Vector3(-9.0, y, 5.0), wood, screen, false)
-	_desk(Vector3(-3.0, y, -5.0), wood, screen, false)
-	_desk(Vector3(-3.0, y, 5.0), wood, screen, false)
+	for spot in [Vector3(-9.0, y, -5.0), Vector3(-9.0, y, 0.0), Vector3(-9.0, y, 5.0),
+			Vector3(-3.0, y, -5.0), Vector3(-3.0, y, 5.0)]:
+		_desk(spot, wood, screen, spot.z == -5.0 and is_equal_approx(spot.x, -9.0))
+		_desk_clutter(spot, 0.8)
+	_art(Vector3(-12.6, y + 2.5, 2.0), Vector2(2.2, 1.3), Color("1d3557"), true)
+	_art(Vector3(-12.6, y + 2.5, -3.0), Vector2(1.6, 1.1), Color("2a9d8f"), true)
 
 	# Break corner.
 	_box(Vector3(2.0, y + 0.77, 8.0), Vector3(1.2, 0.06, 1.2), grey, true)
@@ -561,6 +641,13 @@ func _fit_sixth() -> void:
 		{
 			"name": "Ralph — Floor Manager",
 			"pos": Vector3(2.0, y, -6.0),
+			"schedule": [
+				{"from": 7.5, "to": 12.0, "at": Vector3(2.0, y, -6.0)},
+				{"from": 12.0, "to": 13.0, "at": Vector3(2.4, y, 7.2),
+					"say": ["Lunch is a meeting with yourself. Still a meeting.",
+						"The Godfather eats at his desk. Today the desk is a table."]},
+				{"from": 13.0, "to": 18.5, "at": Vector3(-2.0, y, -4.0)},
+			],
 			"shirt": Color("7b2d3b"),
 			"tie": Color("2a2f36"),
 			"build": "broad",
@@ -581,6 +668,13 @@ func _fit_sixth() -> void:
 		{
 			"name": "Ayden — Senior SDR",
 			"pos": Vector3(-6.2, y, 0.0),
+			"schedule": [
+				{"from": 8.5, "to": 11.5, "at": Vector3(-6.2, y, 0.0)},
+				{"from": 11.5, "to": 12.2, "at": Vector3(1.2, y, 7.6),
+					"say": ["Coffee number four. I can hear colours.",
+						"Ralph said 'peel the onion' twice before ten."]},
+				{"from": 12.2, "to": 17.5, "at": Vector3(-6.2, y, 0.0)},
+			],
 			"shirt": Color("1d3557"),
 			"hair": Color("0d0b0a"),
 			"headset": true,
@@ -595,6 +689,13 @@ func _fit_sixth() -> void:
 		{
 			"name": "Tyler — Sales Ops",
 			"pos": Vector3(2.0, y, 6.0),
+			"schedule": [
+				{"from": 8.0, "to": 12.5, "at": Vector3(2.0, y, 6.0)},
+				{"from": 12.5, "to": 13.4, "at": Vector3(3.0, y, 8.2),
+					"say": ["Lunch is just a stand-up with sandwiches, partner.",
+						"I like to eat where the synergy is."]},
+				{"from": 13.4, "to": 19.0, "at": Vector3(2.0, y, 6.0)},
+			],
 			"shirt": Color("9c5f45"),
 			"hat": "cowboy",
 			"hair": Color("5b4432"),
@@ -615,6 +716,13 @@ func _fit_sixth() -> void:
 		{
 			"name": "Fiona — SDR",
 			"pos": Vector3(-6.2, y, 5.0),
+			"schedule": [
+				{"from": 9.0, "to": 12.4, "at": Vector3(-6.2, y, 5.0)},
+				{"from": 12.4, "to": 13.2, "at": Vector3(0.6, y, 8.0),
+					"say": ["If Ralph says Godfather again I'm going to the roof.",
+						"Don't sit there. That's Tyler's chair. He's named it."]},
+				{"from": 13.2, "to": 17.0, "at": Vector3(-6.2, y, 5.0)},
+			],
 			"shirt": Color("2a9d8f"),
 			"hair": Color("e0c169"),
 			"headset": true,

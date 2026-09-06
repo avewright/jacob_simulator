@@ -11,6 +11,7 @@ signal prompt_changed(text: String)
 signal clothes_changed(value: bool)
 signal car_health_changed(amount: float)
 signal hour_changed(hour: int)
+signal text_received(who: String)
 signal day_changed(day: int)
 
 const SAVE_PATH := "user://save.json"
@@ -70,6 +71,10 @@ var day: int = 1
 var sodas: int = 0
 var candy: int = 0
 
+## Message threads, keyed by contact. Each entry is {body, mine, read, hour}.
+var threads: Dictionary = {}
+var contact_order: Array = []
+
 var sales_leads: Array = []
 var sales_calls: int = 0
 var sales_emails: int = 0
@@ -120,6 +125,7 @@ func _bind_input() -> void:
 	_action("punch", [KEY_K, KEY_F])
 	_action("slam", [KEY_L, KEY_SPACE])
 	_action("wave", [KEY_Q])
+	_action("phone", [KEY_P])
 
 
 func _action(action: String, keys: Array) -> void:
@@ -144,6 +150,8 @@ func reset_new_game() -> void:
 	day = 1
 	sodas = 0
 	candy = 0
+	threads = {}
+	contact_order = []
 	sales_leads = []
 	sales_calls = 0
 	sales_emails = 0
@@ -158,6 +166,60 @@ func reset_new_game() -> void:
 	has_clothes = false
 	objective = "You're in your underwear. Buy clothes, then go to work."
 	missions_changed.emit()
+
+
+func ensure_threads() -> void:
+	if threads == null:
+		threads = {}
+
+
+## `silent` files the message without lighting the badge — used to backfill the
+## day when a save starts mid-morning. `mine` marks it as sent by Jacob.
+func push_text(who: String, body: String, silent: bool = false, mine: bool = false) -> void:
+	ensure_threads()
+	if not threads.has(who):
+		threads[who] = []
+		contact_order.append(who)
+	threads[who].append({
+		"body": body,
+		"mine": mine,
+		"read": silent or mine,
+		"hour": clock,
+	})
+	if not silent and not mine:
+		text_received.emit(who)
+
+
+func unread_in(who: String) -> int:
+	var n := 0
+	for entry in threads.get(who, []):
+		if not bool(entry.get("read", true)):
+			n += 1
+	return n
+
+
+func unread_texts() -> int:
+	var n := 0
+	for who in threads.keys():
+		n += unread_in(who)
+	return n
+
+
+func mark_read(who: String) -> void:
+	for entry in threads.get(who, []):
+		entry["read"] = true
+
+
+## Most recently active first, so the newest thread is at the top.
+func text_contacts() -> Array:
+	var names: Array = contact_order.duplicate()
+	names.sort_custom(func(a, b) -> bool:
+		var ta: Array = threads.get(a, [])
+		var tb: Array = threads.get(b, [])
+		var ha: float = float(ta[ta.size() - 1].get("hour", 0.0)) if not ta.is_empty() else 0.0
+		var hb: float = float(tb[tb.size() - 1].get("hour", 0.0)) if not tb.is_empty() else 0.0
+		return ha > hb)
+	return names
 
 
 func advance_clock(hours: float) -> void:
