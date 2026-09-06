@@ -24,7 +24,8 @@ const SLIDE := 2.4         # normalised rod sweeps per second
 const SWING_BACK := -0.55
 const SWING_THROUGH := 1.35
 const SWING_RATE := 19.0
-const STALL := 2.2
+const STALL := 1.6
+const DEAD_CAP := 5.0      # backstop: no ball sits still longer than this
 const TRAP := 300.0        # below this against a figure, the rod has the ball
 const WIN := 5
 
@@ -72,6 +73,7 @@ var _ball := Vector2(W * 0.5, H * 0.5)
 var _bvel := Vector2.ZERO
 var _curl: float = 0.0
 var _stall: float = 0.0
+var _idle: float = 0.0
 var _serve: float = 1.0
 var _think: float = 0.0
 var _ai_target: float = 0.0
@@ -194,13 +196,18 @@ func _tick(delta: float) -> void:
 	if _bvel.length() > MAX_SPEED:
 		_bvel = _bvel.normalized() * MAX_SPEED
 
-	# Only rescue a ball that has died where no rod can poke it.
-	if _bvel.length() < 24.0 and not _reachable():
-		_stall += delta
-		if _stall >= STALL:
-			_reset("Dead ball — back to centre.")
+	# Rescue a ball that has died somewhere no rod can put a foot on it, and
+	# keep a hard backstop so no geometry I have not thought of can deadlock
+	# the game.
+	if _bvel.length() < 24.0:
+		_idle += delta
+		if not _playable():
+			_stall += delta
 	else:
+		_idle = 0.0
 		_stall = 0.0
+	if _stall >= STALL or _idle >= DEAD_CAP:
+		_reset("Dead ball — back to centre.")
 
 
 ## Whichever of a side's two pairs has a rod nearer the ball. A fixed halfway
@@ -349,15 +356,16 @@ func _collide() -> void:
 			return
 
 
-## Could any rod reach the ball if it slid to meet it?
-func _reachable() -> bool:
-	var grab: float = FIG_R + BALL_R + FOOT
+## Can any rod actually put a foot on the ball? This has to agree with
+## _can_strike exactly. When it did not — the old version tested reach
+## symmetrically while a swing only reaches forward — a ball resting just
+## behind a rod counted as live, blocked the reset, and nothing could kick it.
+func _playable() -> bool:
 	for rod in RODS.size():
-		var rx: float = W * float(RODS[rod][0])
-		if absf(_ball.x - rx) > grab:
+		if not _can_strike(rod):
 			continue
 		var count: int = int(RODS[rod][1])
-		var span: float = _travel(count) + grab
+		var span: float = _travel(count) + FIG_R + BALL_R + 6.0
 		for f in count:
 			if absf(_ball.y - H * (f + 1) / float(count + 1)) <= span:
 				return true
@@ -389,6 +397,7 @@ func _reset(msg: String) -> void:
 	_curl = 0.0
 	_serve = 0.95
 	_stall = 0.0
+	_idle = 0.0
 	_msg.text = msg
 	for i in RODS.size():
 		_kicking[i] = false
