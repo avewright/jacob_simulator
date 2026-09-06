@@ -23,7 +23,9 @@ const SLIDE_SPEED := 3.6
 const STAIR_X0 := 5.0
 const STAIR_X1 := 13.0
 const STAIR_Z0 := -11.0
-const STAIR_Z1 := -1.0
+const STAIR_Z1 := -4.2      # hole edge; z -4.2..-2.6 is the landing inside
+const DOOR_Z := -2.6        # stairwell wall line
+const SD_W := 2.2           # stairwell door width
 # Elevator core: x 9..13, z 5..11, doors on its west face.
 const LIFT_X := 9.0
 const LIFT_Z := 8.0
@@ -35,6 +37,7 @@ const FLOORS := [
 ]
 
 var _leaves: Array[AnimatableBody3D] = []
+var _stair_doors: Array = []      # [{leaf, y, shut_x}]
 var _open: float = 0.0
 var _shell: StandardMaterial3D
 var _stone: StandardMaterial3D
@@ -53,6 +56,7 @@ func _ready() -> void:
 	_build_entrance()
 	_build_slabs()
 	_build_stairs()
+	_build_stairwell()
 	_build_core()
 	_fit_lobby()
 	_fit_fourth()
@@ -71,6 +75,17 @@ func _physics_process(delta: float) -> void:
 	for i in _leaves.size():
 		var side := -1.0 if i == 0 else 1.0
 		_leaves[i].position.z = side * (DOOR_W * 0.25 + shift)
+
+	# Stairwell doors open for whoever is on that floor and close behind them.
+	for door in _stair_doors:
+		var leaf: AnimatableBody3D = door.leaf
+		var near := 0.0
+		if player and not GameState.in_car:
+			var here := to_local(player.global_position)
+			if absf(here.y - float(door.y)) < 2.6 and Vector2(here.x - float(door.shut_x), here.z - DOOR_Z).length() < 3.4:
+				near = 1.0
+		var want_x: float = float(door.shut_x) + near * (SD_W - 0.12)
+		leaf.position.x = move_toward(leaf.position.x, want_x, (SD_W + 0.4) * delta)
 
 
 func floor_y(index: int) -> float:
@@ -293,8 +308,6 @@ func _build_slabs() -> void:
 		_box(Vector3(-W * 0.5 + west_w * 0.5, cy, 0), Vector3(west_w, SLAB, D), _slabmat, true)
 		var east_d := D * 0.5 - STAIR_Z1
 		_box(Vector3((STAIR_X0 + STAIR_X1) * 0.5, cy, STAIR_Z1 + east_d * 0.5), Vector3(STAIR_X1 - STAIR_X0, SLAB, east_d), _slabmat, true)
-		# Railing along the open edge of the shaft.
-		_box(Vector3(STAIR_X0, top + 0.5, (STAIR_Z0 + STAIR_Z1) * 0.5), Vector3(0.12, 1.0, STAIR_Z1 - STAIR_Z0), _trim, true)
 
 		var label := Label3D.new()
 		label.text = FLOORS[i].name
@@ -334,9 +347,104 @@ func _build_stairs() -> void:
 		var top: float = FLOORS[i + 1].y
 		var mid := (base + top) * 0.5
 		# Up the west lane going -z, landing, then back down the east lane going +z.
-		_ramp(6.8, 2.6, STAIR_Z1, -8.8, base, mid, stone)
-		_box(Vector3(9.0, mid - SLAB * 0.5, -9.6), Vector3(7.6, SLAB, 1.8), stone, true)
-		_ramp(11.2, 2.6, -8.8, STAIR_Z1, mid, top, stone)
+		_ramp(6.8, 2.6, STAIR_Z1, -9.8, base, mid, stone)
+		_box(Vector3(9.0, mid - SLAB * 0.5, -10.35), Vector3(7.6, SLAB, 1.5), stone, true)
+		_ramp(11.2, 2.6, -9.8, STAIR_Z1, mid, top, stone)
+		# Handrails down both flights and round the half landing.
+		for lane in [[6.8, STAIR_Z1, -9.8, base, mid], [11.2, -9.8, STAIR_Z1, mid, top]]:
+			for side in [-1.45, 1.45]:
+				_rail(float(lane[0]) + side, float(lane[1]), float(lane[2]), float(lane[3]) + 0.95, float(lane[4]) + 0.95, stone)
+		_box(Vector3(9.0, mid + 0.95, -10.95), Vector3(7.6, 0.08, 0.08), _trim, false)
+
+
+## Concrete enclosure round the stair shaft, with a door onto each floor.
+func _build_stairwell() -> void:
+	var wall := _mat(Color("7e8388"), 0.9)
+	var frame := _mat(Color("b7bcc0"), 0.5, 0.25)
+	var leaf_mat := _mat(Color("55606d"), 0.55, 0.2)
+
+	for i in FLOORS.size():
+		var y: float = FLOORS[i].y
+		var h := 4.9
+		# West wall, keeping you from stepping into the shaft off the floor.
+		_box(Vector3(STAIR_X0, y + h * 0.5, (STAIR_Z0 + STAIR_Z1) * 0.5),
+			Vector3(0.25, h, STAIR_Z1 - STAIR_Z0), wall, true)
+		# Wall onto the floor, split for the doorway.
+		var gap_lo := 8.0
+		var gap_hi := gap_lo + SD_W
+		_box(Vector3((STAIR_X0 + gap_lo) * 0.5, y + h * 0.5, DOOR_Z),
+			Vector3(gap_lo - STAIR_X0, h, 0.25), wall, true)
+		_box(Vector3((gap_hi + STAIR_X1) * 0.5, y + h * 0.5, DOOR_Z),
+			Vector3(STAIR_X1 - gap_hi, h, 0.25), wall, true)
+		_box(Vector3((gap_lo + gap_hi) * 0.5, y + DOOR_H + (h - DOOR_H) * 0.5, DOOR_Z),
+			Vector3(SD_W, h - DOOR_H, 0.25), wall, true)
+
+		# Frame, sign, and a leaf that slides aside as you walk up.
+		for fx in [gap_lo - 0.09, gap_hi + 0.09]:
+			_box(Vector3(fx, y + DOOR_H * 0.5, DOOR_Z), Vector3(0.18, DOOR_H + 0.2, 0.34), frame, false)
+		_box(Vector3((gap_lo + gap_hi) * 0.5, y + DOOR_H + 0.09, DOOR_Z), Vector3(SD_W + 0.36, 0.18, 0.34), frame, false)
+
+		var shut_x: float = (gap_lo + gap_hi) * 0.5
+		var leaf := AnimatableBody3D.new()
+		leaf.collision_layer = 1
+		leaf.collision_mask = 0
+		leaf.sync_to_physics = false
+		leaf.position = Vector3(shut_x, y + DOOR_H * 0.5, DOOR_Z)
+		var size := Vector3(SD_W - 0.06, DOOR_H - 0.06, 0.1)
+		var col := CollisionShape3D.new()
+		var shape := BoxShape3D.new()
+		shape.size = size
+		col.shape = shape
+		leaf.add_child(col)
+		var mi := MeshInstance3D.new()
+		var box := BoxMesh.new()
+		box.size = size
+		mi.mesh = box
+		mi.material_override = leaf_mat
+		leaf.add_child(mi)
+		var bar := MeshInstance3D.new()
+		var bb := BoxMesh.new()
+		bb.size = Vector3(SD_W - 0.5, 0.08, 0.08)
+		bar.mesh = bb
+		bar.material_override = frame
+		bar.position = Vector3(0, -0.1, -0.09)
+		leaf.add_child(bar)
+		add_child(leaf)
+		_stair_doors.append({"leaf": leaf, "y": y, "shut_x": shut_x})
+
+		var sign := Label3D.new()
+		sign.text = "STAIRS"
+		sign.position = Vector3(shut_x, y + DOOR_H + 0.45, DOOR_Z + 0.25)
+		sign.font_size = 22
+		sign.modulate = Color("f1faee")
+		sign.outline_modulate = Color.BLACK
+		sign.outline_size = 5
+		add_child(sign)
+
+		# Landing light inside the shaft.
+		var lamp := OmniLight3D.new()
+		lamp.position = Vector3(9.0, y + 3.4, -6.5)
+		lamp.light_color = Color("dfe8f0")
+		lamp.light_energy = 1.7
+		lamp.omni_range = 11.0
+		lamp.shadow_enabled = false
+		add_child(lamp)
+
+
+func _rail(x: float, z_a: float, z_b: float, y_a: float, y_b: float, material: Material) -> void:
+	var run := absf(z_b - z_a)
+	var rise := absf(y_b - y_a)
+	var slope := atan2(rise, run)
+	var climbs := (z_b > z_a) == (y_b > y_a)
+	var ang := -slope if climbs else slope
+	var mi := MeshInstance3D.new()
+	var box := BoxMesh.new()
+	box.size = Vector3(0.07, 0.07, sqrt(run * run + rise * rise))
+	mi.mesh = box
+	mi.material_override = material
+	mi.position = Vector3(x, (y_a + y_b) * 0.5, (z_a + z_b) * 0.5)
+	mi.rotation.x = ang
+	add_child(mi)
 
 
 func _build_core() -> void:
@@ -389,7 +497,13 @@ func _ceiling(y: float, height: float) -> void:
 	panel.emission = Color("fff6e0")
 	panel.emission_energy_multiplier = 1.5
 	var top := y + height
-	_box(Vector3(0, top - 0.06, 0), Vector3(W - 1.2, 0.12, D - 1.2), tile, false)
+	# Solid: without collision the spring arm sails straight through and you
+	# end up looking at the floor from above the ceiling.
+	var west_w := STAIR_X0 + W * 0.5
+	_box(Vector3(-W * 0.5 + west_w * 0.5, top - 0.06, 0), Vector3(west_w, 0.12, D - 1.2), tile, true)
+	var east_d := D * 0.5 - STAIR_Z1
+	_box(Vector3((STAIR_X0 + STAIR_X1) * 0.5, top - 0.06, STAIR_Z1 + east_d * 0.5),
+		Vector3(STAIR_X1 - STAIR_X0, 0.12, east_d), tile, true)
 	# T-bar grid.
 	for gx in range(-2, 3):
 		_box(Vector3(gx * 5.0, top - 0.14, 0), Vector3(0.08, 0.05, D - 1.4), rail, false)
