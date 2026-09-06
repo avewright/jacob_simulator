@@ -25,6 +25,7 @@ const SWING_BACK := -0.55
 const SWING_THROUGH := 1.35
 const SWING_RATE := 19.0
 const STALL := 2.2
+const TRAP := 300.0        # below this against a figure, the rod has the ball
 const WIN := 5
 
 # x fraction, figure count, is_player
@@ -64,6 +65,8 @@ var _off: Array[float] = []
 var _ang: Array[float] = []
 var _spin_rate: Array[float] = []
 var _kicking: Array[bool] = []
+var _prev_off: Array[float] = []
+var _off_vel: Array[float] = []
 
 var _ball := Vector2(W * 0.5, H * 0.5)
 var _bvel := Vector2.ZERO
@@ -91,6 +94,8 @@ func _ready() -> void:
 		_ang.append(0.0)
 		_spin_rate.append(0.0)
 		_kicking.append(false)
+		_prev_off.append(0.0)
+		_off_vel.append(0.0)
 	_build()
 
 
@@ -140,7 +145,13 @@ func _short() -> String:
 # ---------------------------------------------------------------- simulation
 
 func _tick(delta: float) -> void:
+	for i in RODS.size():
+		_prev_off[i] = _off[i]
 	_drive_rods(delta)
+	# Lateral speed of each rod, in table units — this is what lets a rod carry
+	# a trapped ball sideways instead of just letting it sit there.
+	for i in RODS.size():
+		_off_vel[i] = (_off[i] - _prev_off[i]) / maxf(delta, 0.0001) * _travel(int(RODS[i][1]))
 	_swing_rods(delta)
 
 	if _serve > 0.0:
@@ -192,13 +203,26 @@ func _tick(delta: float) -> void:
 		_stall = 0.0
 
 
-## Which pair you are driving: defence in your half, attack in theirs.
+## Whichever of a side's two pairs has a rod nearer the ball. A fixed halfway
+## threshold left each MID rod undriven in exactly the zone it stands in, so a
+## ball resting against one was stuck with nobody able to move it.
+func _hand_for(a: Array, b: Array) -> Array:
+	return a if _pair_dist(a) <= _pair_dist(b) else b
+
+
+func _pair_dist(pair: Array) -> float:
+	var best: float = INF
+	for i in pair:
+		best = minf(best, absf(_ball.x - W * float(RODS[i][0])))
+	return best
+
+
 func _my_hand() -> Array:
-	return MY_BACK if _ball.x < W * 0.45 else MY_FRONT
+	return _hand_for(MY_BACK, MY_FRONT)
 
 
 func _ai_hand() -> Array:
-	return AI_BACK if _ball.x > W * 0.55 else AI_FRONT
+	return _hand_for(AI_BACK, AI_FRONT)
 
 
 func _drive_rods(delta: float) -> void:
@@ -313,6 +337,12 @@ func _collide() -> void:
 				_ang[rod] = SWING_THROUGH
 				if mine:
 					_shots += 1
+				return
+			# A slow ball against the face of a figure is under control: it
+			# rides along with the rod so you can walk it across the goal and
+			# pick your angle before you shoot.
+			if absf(dir.x) > 0.4 and _bvel.length() < TRAP:
+				_bvel = Vector2(_bvel.x * 0.18, _off_vel[rod])
 				return
 			# Otherwise it is a post and the ball rebounds off it.
 			_bvel = _bvel.bounce(dir.orthogonal()) * 0.84
