@@ -8,6 +8,7 @@ const RANGE := 4.5
 const GAMES := {
 	"foosball": "res://scenes/games/foosball.tscn",
 	"tennis": "res://scenes/games/tennis_match.tscn",
+	"bakery": "res://scenes/games/bakery.tscn",
 }
 
 var kind: String = ""

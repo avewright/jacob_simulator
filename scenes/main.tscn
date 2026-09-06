@@ -1,4 +1,4 @@
-[gd_scene load_steps=21 format=3]
+[gd_scene load_steps=22 format=3]
 
 [ext_resource type="Script" path="res://scripts/main.gd" id="1_main"]
 [ext_resource type="Script" path="res://scripts/world_builder.gd" id="2_world"]
@@ -18,6 +18,7 @@
 [ext_resource type="Script" path="res://scripts/tennis_courts.gd" id="16_tennis"]
 [ext_resource type="Script" path="res://scripts/gas_station.gd" id="17_gas"]
 [ext_resource type="Script" path="res://scripts/phone/phone.gd" id="18_phone"]
+[ext_resource type="Script" path="res://scripts/bakery.gd" id="19_bakery"]
 
 [sub_resource type="ProceduralSkyMaterial" id="ProceduralSkyMaterial_1"]
 sky_top_color = Color(0.28, 0.52, 0.86, 1)
@@ -102,6 +103,10 @@ script = ExtResource("14_chastain")
 [node name="HaterleighHouse" type="Node3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 62, 0, 79)
 script = ExtResource("13_house")
+
+[node name="LillisBakery" type="Node3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 30, 0, 70)
+script = ExtResource("19_bakery")
 
 [node name="ParkingGarage" type="Node3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 46, 0, 28)
