@@ -13,6 +13,7 @@ signal car_health_changed(amount: float)
 signal hour_changed(hour: int)
 signal text_received(who: String)
 signal day_changed(day: int)
+signal nav_changed(id: String)
 
 const SAVE_PATH := "user://save.json"
 const START_MONEY := 420
@@ -59,6 +60,9 @@ var has_clothes: bool = false:
 			return
 		has_clothes = value
 		clothes_changed.emit(has_clothes)
+# Maps destination. Empty means no route running. See scripts/places.gd.
+var nav_id: String = ""
+
 var objective: String = "You're in your underwear. Buy clothes, then go to work.":
 	set(value):
 		objective = value
@@ -392,3 +396,36 @@ func apply_saved_transforms() -> void:
 		car.global_position = saved_car
 		car.global_rotation.y = saved_car_yaw
 	load_from_save = false
+
+
+# ------------------------------------------------------------------ maps
+
+func set_nav(id: String) -> void:
+	if Places.get_place(id).is_empty():
+		return
+	nav_id = id
+	nav_changed.emit(id)
+
+
+func clear_nav() -> void:
+	if nav_id == "":
+		return
+	nav_id = ""
+	nav_changed.emit("")
+
+
+## Where "you" are: the Camry while you are driving it, otherwise Jacob. The
+## player node stays parked where you got in, so anything that navigates off it
+## alone freezes the moment you take the car.
+func here() -> Vector3:
+	if in_car:
+		var car := get_tree().get_first_node_in_group("camry") as Node3D
+		if car:
+			return car.global_position
+	var who := get_tree().get_first_node_in_group("player") as Node3D
+	return who.global_position if who else Vector3.ZERO
+
+
+## The place being navigated to, or {} when nothing is set.
+func nav_place() -> Dictionary:
+	return Places.get_place(nav_id) if nav_id != "" else {}

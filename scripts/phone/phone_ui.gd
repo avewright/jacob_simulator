@@ -395,18 +395,132 @@ func _wallet() -> void:
 
 
 func _maps() -> void:
-	for row in [
-		"10000 Avalon — Kahua, 6th floor",
-		"Chastain Place — home",
-		"5955 Haterleigh Dr",
-		"Whole Foods — across the avenue",
-		"QT — north of the office",
-		"Avalon Tennis Centre",
-		"Super Strikers",
-	]:
-		_line(row, 14, INK)
-	_line(" ", 8, DIM)
-	_line("Rerouting. Rerouting. Rerouting.", 12, DIM)
+	var here := GameState.here()
+
+	var view := Control.new()
+	view.custom_minimum_size = Vector2(0, 208)
+	view.draw.connect(func() -> void: _draw_map(view))
+	_page.add_child(view)
+
+	var place := GameState.nav_place()
+	if place.is_empty():
+		_line("Pick somewhere. The route follows the roads.", 13, DIM)
+	else:
+		var pts := Places.route(here, place["at"])
+		_line("Routing to %s" % String(place["name"]), 15, INK)
+		_line("%s  ·  %d stops" % [Places.distance_text(Places.route_length(pts)), pts.size() - 1], 13, DIM)
+		var stop := Button.new()
+		stop.text = "Stop navigation"
+		stop.add_theme_color_override("font_color", Color("ff453a"))
+		stop.pressed.connect(func() -> void:
+			GameState.clear_nav()
+			_show("maps"))
+		_page.add_child(stop)
+
+	var gap := Control.new()
+	gap.custom_minimum_size = Vector2(0, 6)
+	_page.add_child(gap)
+
+	for p in Places.by_distance(here):
+		_page.add_child(_place_row(p))
+
+
+## One tappable destination. Tapping starts the route and puts the phone away,
+## because you want to be looking at the street, not at this.
+func _place_row(p: Dictionary) -> Control:
+	var id := String(p["id"])
+	var b := Button.new()
+	b.custom_minimum_size = Vector2(0, 52)
+	b.flat = true
+	b.pressed.connect(func() -> void:
+		GameState.set_nav(id)
+		GameState.notice.emit("Maps: routing to %s." % String(p["name"]))
+		_close())
+
+	var row := HBoxContainer.new()
+	row.set_anchors_preset(Control.PRESET_FULL_RECT)
+	row.offset_left = 10
+	row.offset_right = -10
+	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	row.add_theme_constant_override("separation", 10)
+	b.add_child(row)
+
+	var pin := Panel.new()
+	pin.custom_minimum_size = Vector2(10, 10)
+	pin.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	pin.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	var psb := StyleBoxFlat.new()
+	psb.bg_color = Color(p["tint"])
+	psb.set_corner_radius_all(5)
+	pin.add_theme_stylebox_override("panel", psb)
+	row.add_child(pin)
+
+	var text := VBoxContainer.new()
+	text.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	text.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	text.add_theme_constant_override("separation", 0)
+	row.add_child(text)
+	var name_l := Label.new()
+	name_l.text = String(p["name"])
+	name_l.add_theme_font_size_override("font_size", 15)
+	name_l.add_theme_color_override("font_color", BLUE if id == GameState.nav_id else INK)
+	text.add_child(name_l)
+	var note_l := Label.new()
+	note_l.text = String(p["note"])
+	note_l.add_theme_font_size_override("font_size", 11)
+	note_l.add_theme_color_override("font_color", DIM)
+	text.add_child(note_l)
+
+	var far := Label.new()
+	far.text = Places.distance_text(float(p["dist"]))
+	far.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	far.add_theme_font_size_override("font_size", 12)
+	far.add_theme_color_override("font_color", DIM)
+	row.add_child(far)
+	return b
+
+
+## Street map: the road grid, every pin, you, and the live route.
+func _draw_map(view: Control) -> void:
+	var w: float = view.size.x
+	if w < 8.0:
+		return
+	var h: float = view.size.y
+	var span := 420.0
+	var here := GameState.here()
+	var mid := Places.flat(here)
+	var place := GameState.nav_place()
+	if not place.is_empty():
+		mid = (mid + Places.flat(place["at"])) * 0.5
+		span = maxf(span, Places.flat(here).distance_to(Places.flat(place["at"])) * 1.5)
+	var s: float = minf(w, h) / span
+	var to_screen := func(p: Vector2) -> Vector2:
+		return Vector2(w * 0.5, h * 0.5) + (p - mid) * s
+
+	view.draw_rect(Rect2(0, 0, w, h), Color("11150f"))
+	for x in Places.ROADS_NS:
+		var a: Vector2 = to_screen.call(Vector2(float(x), mid.y - span))
+		var b: Vector2 = to_screen.call(Vector2(float(x), mid.y + span))
+		view.draw_line(a, b, Color("2f3540"), maxf(28.0 * s, 2.0))
+	for z in Places.ROADS_EW:
+		var a2: Vector2 = to_screen.call(Vector2(mid.x - span, float(z)))
+		var b2: Vector2 = to_screen.call(Vector2(mid.x + span, float(z)))
+		view.draw_line(a2, b2, Color("2f3540"), maxf(14.0 * s, 2.0))
+
+	if not place.is_empty():
+		var pts := Places.route(here, place["at"])
+		for i in range(1, pts.size()):
+			view.draw_line(to_screen.call(pts[i - 1]), to_screen.call(pts[i]), BLUE, 3.0)
+
+	for p in Places.PLACES:
+		var at: Vector2 = to_screen.call(Places.flat(p["at"]))
+		var live: bool = String(p["id"]) == GameState.nav_id
+		view.draw_circle(at, 6.0 if live else 4.0, Color(p["tint"]))
+		if live:
+			view.draw_arc(at, 10.0, 0.0, TAU, 20, INK, 2.0)
+
+	view.draw_circle(to_screen.call(Places.flat(here)), 5.0, INK)
+	view.draw_arc(to_screen.call(Places.flat(here)), 8.0, 0.0, TAU, 20, BLUE, 2.0)
 
 
 func _weather() -> void:
