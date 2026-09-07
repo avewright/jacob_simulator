@@ -26,6 +26,14 @@ const STAIR_Z0 := -11.0
 const STAIR_Z1 := -4.2      # hole edge; z -4.2..-2.6 is the landing inside
 const DOOR_Z := -2.6        # stairwell wall line
 const SD_W := 2.2           # stairwell door width
+const SD_X0 := 5.6          # doorway lines up with the up-flight lane
+# Switchback turn line. Both flights reach half height exactly here, and the
+# half landing starts here, so the two surfaces meet flush instead of leaving
+# a lip you have to jump.
+const LAND_Z := -9.2
+const LAND_BACK := -10.8    # landing runs back into the north shell wall
+const SPINE_X0 := 8.1       # solid core between the two flights
+const SPINE_X1 := 9.9
 # Elevator core: x 9..13, z 5..11, doors on its west face.
 const LIFT_X := 9.0
 const LIFT_Z := 8.0
@@ -342,19 +350,29 @@ func _build_slabs() -> void:
 
 func _build_stairs() -> void:
 	var stone := _mat(Color("6d737c"), 0.8)
+	var wall_mat := _mat(Color("7e8388"), 0.9)
 	for i in range(FLOORS.size() - 1):
 		var base: float = FLOORS[i].y
 		var top: float = FLOORS[i + 1].y
 		var mid := (base + top) * 0.5
-		# Up the west lane going -z, landing, then back down the east lane going +z.
-		_ramp(6.8, 2.6, STAIR_Z1, -9.8, base, mid, stone)
-		_box(Vector3(9.0, mid - SLAB * 0.5, -10.35), Vector3(7.6, SLAB, 1.5), stone, true)
-		_ramp(11.2, 2.6, -9.8, STAIR_Z1, mid, top, stone)
+		# Up the west lane going -z, half landing across the back, then up the
+		# east lane going +z. Both flights turn at LAND_Z, which is also the
+		# landing's near edge, so the surfaces meet flush.
+		var land_d := LAND_Z - LAND_BACK
+		_ramp(6.8, 2.6, STAIR_Z1, LAND_Z, base, mid, stone)
+		_box(Vector3((STAIR_X0 + STAIR_X1) * 0.5, mid - SLAB * 0.5, (LAND_BACK + LAND_Z) * 0.5),
+			Vector3(STAIR_X1 - STAIR_X0, SLAB, land_d), stone, true)
+		_ramp(11.2, 2.6, LAND_Z, STAIR_Z1, mid, top, stone)
+		# Solid core between the flights: real switchback stairs run either side
+		# of a wall, and it stops you dropping down the well.
+		_box(Vector3((SPINE_X0 + SPINE_X1) * 0.5, (base + top) * 0.5, (STAIR_Z1 + LAND_Z) * 0.5),
+			Vector3(SPINE_X1 - SPINE_X0, top - base, STAIR_Z1 - LAND_Z), wall_mat, true)
 		# Handrails down both flights and round the half landing.
-		for lane in [[6.8, STAIR_Z1, -9.8, base, mid], [11.2, -9.8, STAIR_Z1, mid, top]]:
-			for side in [-1.45, 1.45]:
+		for lane in [[6.8, STAIR_Z1, LAND_Z, base, mid], [11.2, LAND_Z, STAIR_Z1, mid, top]]:
+			# Hugging the flight edges: 1.45 put the inner rail inside the core.
+			for side in [-1.25, 1.25]:
 				_rail(float(lane[0]) + side, float(lane[1]), float(lane[2]), float(lane[3]) + 0.95, float(lane[4]) + 0.95, stone)
-		_box(Vector3(9.0, mid + 0.95, -10.95), Vector3(7.6, 0.08, 0.08), _trim, false)
+		_box(Vector3(9.0, mid + 0.95, LAND_BACK + 0.12), Vector3(7.6, 0.08, 0.08), _trim, false)
 
 
 ## Concrete enclosure round the stair shaft, with a door onto each floor.
@@ -365,12 +383,16 @@ func _build_stairwell() -> void:
 
 	for i in FLOORS.size():
 		var y: float = FLOORS[i].y
-		var h := 4.9
-		# West wall, keeping you from stepping into the shaft off the floor.
-		_box(Vector3(STAIR_X0, y + h * 0.5, (STAIR_Z0 + STAIR_Z1) * 0.5),
-			Vector3(0.25, h, STAIR_Z1 - STAIR_Z0), wall, true)
-		# Wall onto the floor, split for the doorway.
-		var gap_lo := 8.0
+		# Full storey, so the wall meets the slab above with no slot left over.
+		var h := 5.0
+		# West wall, keeping you from stepping into the shaft off the floor. It
+		# has to run all the way to the door line, not just to the slab edge,
+		# or the last 1.6m of the shaft is open to the office.
+		_box(Vector3(STAIR_X0, y + h * 0.5, (STAIR_Z0 + DOOR_Z) * 0.5),
+			Vector3(0.25, h, DOOR_Z - STAIR_Z0), wall, true)
+		# Wall onto the floor, split for the doorway. The gap lines up with the
+		# up-flight so you walk in facing the stairs.
+		var gap_lo := SD_X0
 		var gap_hi := gap_lo + SD_W
 		_box(Vector3((STAIR_X0 + gap_lo) * 0.5, y + h * 0.5, DOOR_Z),
 			Vector3(gap_lo - STAIR_X0, h, 0.25), wall, true)
@@ -504,21 +526,46 @@ func _ceiling(y: float, height: float) -> void:
 	var east_d := D * 0.5 - STAIR_Z1
 	_box(Vector3((STAIR_X0 + STAIR_X1) * 0.5, top - 0.06, STAIR_Z1 + east_d * 0.5),
 		Vector3(STAIR_X1 - STAIR_X0, 0.12, east_d), tile, true)
-	# T-bar grid.
+	# T-bar grid. The stair shaft is an open hole through this level, so any run
+	# that would cross it is clipped back to the tiled area — otherwise the
+	# rails hang across the stairwell like scaffolding.
 	for gx in range(-2, 3):
-		_box(Vector3(gx * 5.0, top - 0.14, 0), Vector3(0.08, 0.05, D - 1.4), rail, false)
+		var rx := gx * 5.0
+		if rx >= STAIR_X0 - 0.5:
+			# East of the shaft edge: only the z > STAIR_Z1 part is ceiling.
+			var run_d := D * 0.5 - 0.7 - STAIR_Z1
+			_box(Vector3(rx, top - 0.14, STAIR_Z1 + run_d * 0.5), Vector3(0.08, 0.05, run_d), rail, false)
+		else:
+			_box(Vector3(rx, top - 0.14, 0), Vector3(0.08, 0.05, D - 1.4), rail, false)
 	for gz in range(-2, 3):
-		_box(Vector3(0, top - 0.14, gz * 4.4), Vector3(W - 1.4, 0.05, 0.08), rail, false)
-	# Recessed panels.
-	for px in [-8.0, -2.0, 4.0]:
+		var rz := gz * 4.4
+		if rz <= STAIR_Z1 + 0.5:
+			# Level with the shaft: stop at its west edge.
+			var run_w := STAIR_X0 + W * 0.5 - 0.7
+			_box(Vector3(-W * 0.5 + 0.7 + run_w * 0.5, top - 0.14, rz), Vector3(run_w, 0.05, 0.08), rail, false)
+		else:
+			_box(Vector3(0, top - 0.14, rz), Vector3(W - 1.4, 0.05, 0.08), rail, false)
+	# Recessed panels, skipping any that would float over the shaft.
+	for px in [-8.0, -2.0, 3.4]:
 		for pz in [-6.0, 0.0, 6.0]:
+			if px + 1.2 > STAIR_X0 and pz - 0.55 < STAIR_Z1:
+				continue
 			_box(Vector3(px, top - 0.15, pz), Vector3(2.4, 0.06, 1.1), panel, false)
-	# Skirting.
+	# Skirting, clipped the same way — the north and east runs would otherwise
+	# float across the stair shaft at floor height with nothing under them.
 	var skirt := _mat(Color("6f7378"), 0.7)
 	for sz in [-D * 0.5 + 0.3, D * 0.5 - 0.3]:
-		_box(Vector3(0, y + 0.08, sz), Vector3(W - 1.0, 0.16, 0.06), skirt, false)
+		if sz < STAIR_Z1:
+			var w_run := STAIR_X0 + W * 0.5 - 0.5
+			_box(Vector3(-W * 0.5 + 0.5 + w_run * 0.5, y + 0.08, sz), Vector3(w_run, 0.16, 0.06), skirt, false)
+		else:
+			_box(Vector3(0, y + 0.08, sz), Vector3(W - 1.0, 0.16, 0.06), skirt, false)
 	for sx in [-W * 0.5 + 0.3, W * 0.5 - 0.3]:
-		_box(Vector3(sx, y + 0.08, 0), Vector3(0.06, 0.16, D - 1.0), skirt, false)
+		if sx > STAIR_X0:
+			var d_run := D * 0.5 - 0.5 - STAIR_Z1
+			_box(Vector3(sx, y + 0.08, STAIR_Z1 + d_run * 0.5), Vector3(0.06, 0.16, d_run), skirt, false)
+		else:
+			_box(Vector3(sx, y + 0.08, 0), Vector3(0.06, 0.16, D - 1.0), skirt, false)
 
 
 ## Framed print on a wall.
@@ -977,7 +1024,13 @@ func _ramp(x_centre: float, width: float, z_from: float, z_to: float, y_from: fl
 	var body := StaticBody3D.new()
 	body.collision_layer = 1
 	body.collision_mask = 0
-	body.position = Vector3(x_centre, (y_from + y_to) * 0.5 - thick * 0.5 * cos(ang), (z_from + z_to) * 0.5)
+	# You walk on the top face, not the centre line, so both offsets are taken
+	# out here: the slab's own thickness in y, and the z the tilted top face
+	# picks up from it. Without the z term the walking surface stops ~8cm short
+	# of z_to and every flight ends in a step you have to jump.
+	body.position = Vector3(x_centre,
+		(y_from + y_to) * 0.5 - thick * 0.5 * cos(ang),
+		(z_from + z_to) * 0.5 - thick * 0.5 * sin(ang))
 	body.rotation.x = ang
 	var size := Vector3(width, thick, length)
 	var col := CollisionShape3D.new()
