@@ -60,7 +60,7 @@ func _surface() -> void:
 		_box(Vector3(sin(mid), 0.0, cos(mid)) * FENCE * 0.5 + Vector3(0, 0.02, 0),
 			Vector3(chord + 0.4, 0.04, FENCE), _cut if i % 2 == 0 else _grass, mid)
 	# Foul ground either side, out to the poles.
-	for side in [-1.0, 1.0]:
+	for side: float in [-1.0, 1.0]:
 		var a := side * (FOUL + 0.16)
 		_box(Vector3(sin(a), 0.02, cos(a)) * FENCE * 0.5, Vector3(9.0, 0.04, FENCE), _grass, a)
 	# Warning track just inside the wall.
@@ -83,15 +83,15 @@ func _infield() -> void:
 
 	# Bases and plate.
 	_box(Vector3(0, 0.09, 0.2), Vector3(0.5, 0.05, 0.5), _chalk, PI * 0.25)
-	for at in [Vector3(b, 0.09, b), Vector3(0, 0.09, BASE * sqrt(2.0)), Vector3(-b, 0.09, b)]:
+	for at: Vector3 in [Vector3(b, 0.09, b), Vector3(0, 0.09, BASE * sqrt(2.0)), Vector3(-b, 0.09, b)]:
 		_box(at, Vector3(0.55, 0.06, 0.55), _chalk)
 
 	# Foul lines from the plate out to the poles.
-	for side in [-1.0, 1.0]:
+	for side: float in [-1.0, 1.0]:
 		var a := side * FOUL
 		_box(Vector3(sin(a), 0.09, cos(a)) * FENCE * 0.5, Vector3(0.14, 0.04, FENCE), _chalk, a)
 	# Batter's boxes.
-	for side in [-1.0, 1.0]:
+	for side: float in [-1.0, 1.0]:
 		_box(Vector3(side * 1.1, 0.09, 0.1), Vector3(1.2, 0.04, 1.8), _chalk)
 		_box(Vector3(side * 1.1, 0.10, 0.1), Vector3(0.95, 0.04, 1.55), _dirt)
 
@@ -106,7 +106,7 @@ func _fence() -> void:
 		_box(at + Vector3(0, WALL_H * 0.5, 0), Vector3(chord + 0.3, WALL_H, 0.3), _wall, a, true)
 		_box(at + Vector3(0, WALL_H + 0.06, 0), Vector3(chord + 0.3, 0.12, 0.42), _chalk, a)
 	# Foul poles.
-	for side in [-1.0, 1.0]:
+	for side: float in [-1.0, 1.0]:
 		var a := side * FOUL
 		var at := Vector3(sin(a), 0.0, cos(a)) * FENCE
 		_box(at + Vector3(0, 4.5, 0), Vector3(0.3, 9.0, 0.3), _mat(Color("f6c000"), 0.5), 0.0, true)
@@ -160,21 +160,21 @@ func _backstop() -> void:
 
 func _dugouts() -> void:
 	var block := _mat(Color("b9b4a6"), 0.9)
-	for side in [-1.0, 1.0]:
+	for side: float in [-1.0, 1.0]:
 		var a := side * (FOUL + 0.13)
 		var at := Vector3(sin(a), 0.0, cos(a)) * 22.0
 		_box(at + Vector3(0, 1.1, 0), Vector3(9.0, 2.2, 0.35), block, a, true)
 		_box(at + Vector3(0, 0.25, side * 1.6), Vector3(8.6, 0.5, 1.2), block, a)
 		_box(at + Vector3(0, 0.85, side * 1.9), Vector3(8.6, 0.14, 0.5), _mat(Color("6b4a2f"), 0.8), a)
 		_box(at + Vector3(0, 2.5, side * 1.4), Vector3(9.4, 0.18, 3.6), _mat(Color("55606d"), 0.7), a, true)
-		for post in [-4.2, 4.2]:
+		for post: float in [-4.2, 4.2]:
 			var off := Vector3(cos(a) * post, 1.2, -sin(a) * post)
 			_box(at + off + Vector3(0, 0, side * 3.0), Vector3(0.18, 2.4, 0.18), _steel)
 
 
 func _bleachers() -> void:
 	var steel := _mat(Color("8d949c"), 0.5, 0.4)
-	for side in [-1.0, 1.0]:
+	for side: float in [-1.0, 1.0]:
 		var base := Vector3(side * 12.0, 0.0, -11.0)
 		for row in 5:
 			var y := 0.5 + row * 0.42
@@ -182,7 +182,7 @@ func _bleachers() -> void:
 			_box(Vector3(base.x, y, z), Vector3(11.0, 0.14, 0.62), steel)
 			_box(Vector3(base.x, y - 0.25, z), Vector3(11.0, 0.5, 0.08), _pad)
 		_box(Vector3(base.x, 1.9, base.z - 3.6), Vector3(11.0, 0.1, 0.1), steel)
-		for post in [-5.2, 0.0, 5.2]:
+		for post: float in [-5.2, 0.0, 5.2]:
 			_box(Vector3(base.x + post, 1.0, base.z - 3.6), Vector3(0.12, 2.0, 0.12), steel)
 
 
@@ -217,7 +217,7 @@ func _lights() -> void:
 		var at := Vector3(sin(a), 0.0, cos(a)) * r
 		_box(at + Vector3(0, 7.0, 0), Vector3(0.5, 14.0, 0.5), _steel, 0.0, true)
 		_box(at + Vector3(0, 14.4, 0), Vector3(4.0, 0.9, 0.5), _pad)
-		for lamp in [-1.2, 0.0, 1.2]:
+		for lamp: float in [-1.2, 0.0, 1.2]:
 			_box(at + Vector3(lamp, 14.4, -0.3), Vector3(1.0, 0.7, 0.14),
 				_mat(Color("fff4dd"), 0.3))
 		var light := SpotLight3D.new()
