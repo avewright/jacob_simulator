@@ -58,6 +58,10 @@ const PLACES := [
 		"at": Vector3(-38.0, 0.0, -22.0), "radius": 14.0, "tint": Color("ffb703"),
 	},
 	{
+		"id": "ballfield", "name": "AHS Baseball Field", "note": "Home of the Raiders",
+		"at": Vector3(160.0, 0.0, 63.0), "radius": 12.0, "tint": Color("f6c000"),
+	},
+	{
 		"id": "tennis", "name": "Avalon Tennis Centre", "note": "Courts and a match",
 		"at": Vector3(124.0, 0.0, -76.0), "radius": 20.0, "tint": Color("6a994e"),
 	},

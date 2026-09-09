@@ -7,6 +7,7 @@ const SIDEWALK := 2.4
 
 var _rng := RandomNumberGenerator.new()
 var _buildings: Array[Dictionary] = []
+var _tree_spots: Array[Vector2] = []   # trunk positions, so Evan can mow round them
 var _office_mat: StandardMaterial3D
 var _brick_mat: StandardMaterial3D
 var _house_mats: Array[StandardMaterial3D] = []
@@ -21,6 +22,7 @@ var _carpet: StandardMaterial3D
 
 
 func _ready() -> void:
+	add_to_group("world_builder")
 	_rng.seed = 400400
 	_make_mats()
 	_ground()
@@ -281,8 +283,12 @@ func _city() -> void:
 
 
 func _blocked(x: float, z: float) -> bool:
-	if _on_road(x, z):
-		return true
+	return _on_road(x, z) or _reserved(x, z)
+
+
+## The reserved plots on their own, without the road test. Anything that wants
+## to cross a street — the mower does — needs to ask about plots separately.
+func _reserved(x: float, z: float) -> bool:
 	if x > 2.0 and x < 58.0 and absf(z) < 22.0:
 		return true
 	# Super Strikers arcade, across the avenue from the office.
@@ -308,6 +314,9 @@ func _blocked(x: float, z: float) -> bool:
 		return true
 	# Lilli's Bakery, down the street from Haterleigh.
 	if x > 16.0 and x < 46.0 and z > 56.0 and z < 84.0:
+		return true
+	# Alpharetta High School baseball field, east across the 90 road.
+	if x > 104.0 and x < 216.0 and z > 54.0 and z < 150.0:
 		return true
 	# Avalon tennis centre, along the road from Chastain.
 	if x > 98.0 and x < 150.0 and z > -106.0 and z < -56.0:
@@ -338,6 +347,7 @@ func _on_pavement(x: float, z: float, margin: float = 1.2) -> bool:
 
 
 func _tree_collider(x: float, z: float) -> void:
+	_tree_spots.append(Vector2(x, z))
 	var body := StaticBody3D.new()
 	body.collision_layer = 1
 	body.collision_mask = 0
@@ -467,3 +477,25 @@ func _on_pickup(body: Node3D, area: Area3D) -> void:
 	GameState.add_money(45)
 	GameState.notice.emit("+$45")
 	area.queue_free()
+
+
+## Where the mower can physically get to: anything that is not a building, a
+## tree or someone's plot. Roads count — Evan crosses streets between verges
+## like any grounds crew, he just does not cut while he is on one.
+func is_drivable(x: float, z: float, clearance: float = 2.5) -> bool:
+	if absf(x) > 300.0 or absf(z) > 300.0:
+		return false
+	if _reserved(x, z):
+		return false
+	for b in _buildings:
+		if absf(float(b.x) - x) < float(b.w) * 0.5 + clearance and absf(float(b.z) - z) < float(b.d) * 0.5 + clearance:
+			return false
+	for t in _tree_spots:
+		if t.distance_to(Vector2(x, z)) < 2.2 + clearance:
+			return false
+	return true
+
+
+## Where there is actually grass to cut: drivable, and off the tarmac.
+func is_mowable(x: float, z: float, clearance: float = 2.5) -> bool:
+	return is_drivable(x, z, clearance) and not _on_pavement(x, z, clearance)

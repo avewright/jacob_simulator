@@ -63,6 +63,10 @@ var has_clothes: bool = false:
 # Maps destination. Empty means no route running. See scripts/places.gd.
 var nav_id: String = ""
 
+# Hinge: ids already swiped on, and ids that matched. See scripts/phone/hinge.gd.
+var hinge_seen: Array = []
+var hinge_matches: Array = []
+
 var objective: String = "You're in your underwear. Buy clothes, then go to work.":
 	set(value):
 		objective = value
@@ -351,6 +355,8 @@ func save_game() -> void:
 		"in_car": in_car,
 		"objective": objective,
 		"has_clothes": has_clothes,
+		"hinge_seen": hinge_seen,
+		"hinge_matches": hinge_matches,
 	}
 	var file := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
 	if file == null:
@@ -370,6 +376,8 @@ func load_game() -> bool:
 		return false
 	var data: Dictionary = parsed
 	money = int(data.get("money", START_MONEY))
+	hinge_seen = data.get("hinge_seen", [])
+	hinge_matches = data.get("hinge_matches", [])
 	fuel = float(data.get("fuel", START_FUEL))
 	missions_done = data.get("missions_done", {})
 	var p: Array = data.get("player", [16.0, 0.0, 4.0])
@@ -429,3 +437,20 @@ func here() -> Vector3:
 ## The place being navigated to, or {} when nothing is set.
 func nav_place() -> Dictionary:
 	return Places.get_place(nav_id) if nav_id != "" else {}
+
+
+# ------------------------------------------------------------------ hinge
+
+## Swipe on a profile. Returns true if it matched, in which case they text you.
+func hinge_swipe(id: String, liked: bool) -> bool:
+	if hinge_seen.has(id):
+		return false
+	hinge_seen.append(id)
+	if not liked:
+		return false
+	var who := Hinge.profile(id)
+	if who.is_empty() or not bool(who["likes"]):
+		return false
+	hinge_matches.append(id)
+	push_text(String(who["name"]), String(who["opener"]), false)
+	return true

@@ -22,6 +22,7 @@ const APPS := [
 	["Salesforce", "crm", Color("0176d3")],
 	["Wallet", "wallet", Color("2c2c2e")],
 	["Maps", "maps", Color("34c759")],
+	["Hinge", "hinge", Color("c1121f")],
 	["Weather", "weather", Color("3a86ff")],
 	["Camera", "camera", Color("48484a")],
 	["Settings", "settings", Color("636366")],
@@ -217,6 +218,9 @@ func _show(screen: String) -> void:
 		"maps":
 			_title.text = "Maps"
 			_maps()
+		"hinge":
+			_title.text = "Hinge"
+			_hinge()
 		"weather":
 			_title.text = "Weather"
 			_weather()
@@ -521,6 +525,106 @@ func _draw_map(view: Control) -> void:
 
 	view.draw_circle(to_screen.call(Places.flat(here)), 5.0, INK)
 	view.draw_arc(to_screen.call(Places.flat(here)), 8.0, 0.0, TAU, 20, BLUE, 2.0)
+
+
+## One card at a time, the way the app works. Liking someone who likes you
+## back drops their opener into Messages, so a match turns into a thread.
+func _hinge() -> void:
+	var matches: int = GameState.hinge_matches.size()
+	var who := Hinge.next_unseen(GameState.hinge_seen)
+	if who.is_empty():
+		_line("You've seen everyone within 30 miles.", 15, INK)
+		_line(" ", 8, DIM)
+		_line("%d match%s. Try Messages." % [matches, "" if matches == 1 else "es"], 13, DIM)
+		var reset := Button.new()
+		reset.text = "Start over"
+		reset.pressed.connect(func() -> void:
+			GameState.hinge_seen.clear()
+			_show("hinge"))
+		_page.add_child(reset)
+		return
+
+	var card := PanelContainer.new()
+	var csb := StyleBoxFlat.new()
+	csb.bg_color = GREY
+	csb.set_corner_radius_all(18)
+	csb.content_margin_left = 14
+	csb.content_margin_right = 14
+	csb.content_margin_top = 14
+	csb.content_margin_bottom = 14
+	card.add_theme_stylebox_override("panel", csb)
+	_page.add_child(card)
+
+	var col := VBoxContainer.new()
+	col.add_theme_constant_override("separation", 6)
+	card.add_child(col)
+
+	var photo := Panel.new()
+	photo.custom_minimum_size = Vector2(0, 168)
+	var psb := StyleBoxFlat.new()
+	psb.bg_color = Color(who["tint"])
+	psb.set_corner_radius_all(12)
+	photo.add_theme_stylebox_override("panel", psb)
+	col.add_child(photo)
+
+	var mono := Label.new()
+	mono.set_anchors_preset(Control.PRESET_FULL_RECT)
+	mono.text = Hinge.initials(String(who["name"]))
+	mono.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	mono.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	mono.add_theme_font_size_override("font_size", 76)
+	mono.add_theme_color_override("font_color", Color(1, 1, 1, 0.85))
+	photo.add_child(mono)
+
+	var head := Label.new()
+	head.text = "%s, %d" % [String(who["name"]), int(who["age"])]
+	head.add_theme_font_size_override("font_size", 22)
+	head.add_theme_color_override("font_color", INK)
+	col.add_child(head)
+
+	var job := Label.new()
+	job.text = String(who["job"])
+	job.add_theme_font_size_override("font_size", 12)
+	job.add_theme_color_override("font_color", DIM)
+	col.add_child(job)
+
+	var prompt := Label.new()
+	prompt.text = String(who["prompt"])
+	prompt.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	prompt.add_theme_font_size_override("font_size", 11)
+	prompt.add_theme_color_override("font_color", DIM)
+	col.add_child(prompt)
+
+	var answer := Label.new()
+	answer.text = String(who["answer"])
+	answer.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	answer.add_theme_font_size_override("font_size", 15)
+	answer.add_theme_color_override("font_color", INK)
+	col.add_child(answer)
+
+	var id := String(who["id"])
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 12)
+	_page.add_child(row)
+	row.add_child(_swipe_btn("✕  Pass", Color("8e8e93"), id, false))
+	row.add_child(_swipe_btn("♥  Like", Color("ff375f"), id, true))
+
+	var left: int = Hinge.PROFILES.size() - GameState.hinge_seen.size()
+	_line("%d left nearby    ·    %d match%s" % [left, matches, "" if matches == 1 else "es"], 11, DIM)
+
+
+func _swipe_btn(text: String, tint: Color, id: String, liked: bool) -> Button:
+	var b := Button.new()
+	b.text = text
+	b.custom_minimum_size = Vector2(0, 44)
+	b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	b.add_theme_color_override("font_color", tint)
+	b.pressed.connect(func() -> void:
+		var who := Hinge.profile(id)
+		if GameState.hinge_swipe(id, liked):
+			GameState.notice.emit("It's a match — %s sent you a message." % String(who["name"]))
+		_show("hinge"))
+	return b
 
 
 func _weather() -> void:
