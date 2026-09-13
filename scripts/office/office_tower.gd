@@ -69,6 +69,7 @@ func _ready() -> void:
 	_fit_lobby()
 	_fit_fourth()
 	_fit_sixth()
+	_harman()
 
 
 func _physics_process(delta: float) -> void:
@@ -85,15 +86,53 @@ func _physics_process(delta: float) -> void:
 		_leaves[i].position.z = side * (DOOR_W * 0.25 + shift)
 
 	# Stairwell doors open for whoever is on that floor and close behind them.
+	var watchers: Array[Node3D] = []
+	if player and not GameState.in_car:
+		watchers.append(player)
+	var greaser := get_tree().get_first_node_in_group("greaser") as Node3D
+	if greaser:
+		watchers.append(greaser)
 	for door in _stair_doors:
 		var leaf: AnimatableBody3D = door.leaf
 		var near := 0.0
-		if player and not GameState.in_car:
-			var here := to_local(player.global_position)
+		for body in watchers:
+			var here := to_local(body.global_position)
 			if absf(here.y - float(door.y)) < 2.6 and Vector2(here.x - float(door.shut_x), here.z - DOOR_Z).length() < 3.4:
 				near = 1.0
+				break
 		var want_x: float = float(door.shut_x) + near * (SD_W - 0.12)
 		leaf.position.x = move_toward(leaf.position.x, want_x, (SD_W + 0.4) * delta)
+
+
+## Waypoints through the stair shaft between two adjacent floors, door to
+## door. Anything that walks the building — Harman does — should ask for these
+## rather than keep its own copy of where the flights and landing are.
+func stair_path(from_index: int, to_index: int) -> Array[Vector3]:
+	var path := _stair_up(mini(from_index, to_index))
+	if to_index < from_index:
+		path.reverse()
+	return path
+
+
+func _stair_up(lower: int) -> Array[Vector3]:
+	var y0 := floor_y(lower)
+	var y1 := floor_y(lower + 1)
+	var mid := (y0 + y1) * 0.5
+	var door_x := SD_X0 + SD_W * 0.5
+	var land := (LAND_BACK + LAND_Z) * 0.5
+	return [
+		Vector3(door_x, y0, DOOR_Z + 1.2),    # on the floor, facing the door
+		Vector3(door_x, y0, DOOR_Z - 0.8),    # through it, into the shaft
+		Vector3(6.8, y0, STAIR_Z1),           # foot of the first flight
+		Vector3(6.8, mid, LAND_Z),            # top of it, at the turn
+		Vector3(6.8, mid, land),              # onto the half landing
+		Vector3(11.2, mid, land),             # across it
+		Vector3(11.2, mid, LAND_Z),           # foot of the second flight
+		Vector3(11.2, y1, STAIR_Z1),          # top of it, onto the slab
+		Vector3(11.2, y1, DOOR_Z - 0.8),
+		Vector3(door_x, y1, DOOR_Z - 0.8),
+		Vector3(door_x, y1, DOOR_Z + 1.2),
+	]
 
 
 func floor_y(index: int) -> float:
@@ -1075,3 +1114,12 @@ func _mat(color: Color, roughness: float, metallic: float = 0.0) -> StandardMate
 	m.roughness = roughness
 	m.metallic = metallic
 	return m
+
+
+## Harman. Based on four, but he is never on four — he does the rounds all day.
+func _harman() -> void:
+	var him := AnimatableBody3D.new()
+	him.name = "Harman"
+	him.set_script(load("res://scripts/office/harman.gd"))
+	add_child(him)
+	him.setup(self)
