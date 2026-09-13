@@ -11,8 +11,11 @@ const BASE := 22.0             # base path
 const FENCE := 62.0            # home plate to the outfield wall
 const MOUND := 15.0
 const WALL_H := 2.4
-const SEGMENTS := 26           # boxes making up the fence arc
+const SEGMENTS := 26           # panels making up the fence arc
 const FOUL := PI * 0.25        # foul line angle off centre
+const TRACK := 3.2             # warning track width
+const SKIN := 30.0             # dirt infield, home plate to the arc
+const PATH := 1.5              # base path half width
 
 var _grass: StandardMaterial3D
 var _cut: StandardMaterial3D
@@ -48,52 +51,135 @@ func _mats() -> void:
 
 # ------------------------------------------------------------------ ground
 
-## Playing surface: a fan of wedges out to the fence, so the grass stops where
-## the wall does instead of sitting in a square that pokes out behind it.
+## Playing surface.
+##
+## This used to be laid out with boxes, one per wedge. A box cannot taper, so
+## every wedge stayed full width all the way in to home plate and all 26 of
+## them piled up on top of each other over the batter's boxes — that was the
+## green covering the plate, and the flickering across the infield. Ground
+## markings are built as real fan geometry now, so a wedge is actually a wedge
+## and nothing overlaps anything.
 func _surface() -> void:
+	# Outfield and foul ground, in alternating mown bands.
 	for i in SEGMENTS:
 		var a0 := -FOUL + (2.0 * FOUL) * i / float(SEGMENTS)
 		var a1 := -FOUL + (2.0 * FOUL) * (i + 1) / float(SEGMENTS)
-		var mid := (a0 + a1) * 0.5
-		var chord := 2.0 * FENCE * sin((a1 - a0) * 0.5)
-		# Every other wedge a shade lighter: the mown-in pattern.
-		_box(Vector3(sin(mid), 0.0, cos(mid)) * FENCE * 0.5 + Vector3(0, 0.02, 0),
-			Vector3(chord + 0.4, 0.04, FENCE), _cut if i % 2 == 0 else _grass, mid)
-	# Foul ground either side, out to the poles.
-	for side: float in [-1.0, 1.0]:
-		var a := side * (FOUL + 0.16)
-		_box(Vector3(sin(a), 0.02, cos(a)) * FENCE * 0.5, Vector3(9.0, 0.04, FENCE), _grass, a)
-	# Warning track just inside the wall.
-	for i in SEGMENTS:
-		var a := -FOUL + (2.0 * FOUL) * (i + 0.5) / float(SEGMENTS)
-		var chord := 2.0 * FENCE * sin(FOUL / float(SEGMENTS))
-		_box(Vector3(sin(a), 0.03, cos(a)) * (FENCE - 1.6), Vector3(chord + 0.4, 0.04, 3.2), _dirt, a)
+		_sector(0.0, FENCE - TRACK, a0, a1, 0.02, _cut if i % 2 == 0 else _grass)
+	# Foul ground carries on past the poles to the fence line.
+	_sector(0.0, FENCE - TRACK, -FOUL - 0.22, -FOUL, 0.02, _grass)
+	_sector(0.0, FENCE - TRACK, FOUL, FOUL + 0.22, 0.02, _grass)
+	# Warning track, a band of dirt inside the wall.
+	_sector(FENCE - TRACK, FENCE, -FOUL - 0.22, FOUL + 0.22, 0.04, _dirt)
 
 
 func _infield() -> void:
 	var b := BASE / sqrt(2.0)
-	# Skinned infield: a diamond of dirt, drawn as a square turned 45 degrees.
-	_box(Vector3(0, 0.05, b), Vector3(BASE + 9.0, 0.04, BASE + 9.0), _dirt, PI * 0.25)
-	# Infield grass sits inside the base paths.
-	_box(Vector3(0, 0.07, b), Vector3(BASE - 5.0, 0.04, BASE - 5.0), _cut, PI * 0.25)
-	# Home plate circle and the mound.
-	_box(Vector3(0, 0.06, 0), Vector3(7.0, 0.04, 7.0), _dirt)
-	_box(Vector3(0, 0.08, MOUND), Vector3(5.4, 0.16, 5.4), _dirt)
-	_box(Vector3(0, 0.17, MOUND), Vector3(0.6, 0.05, 0.16), _chalk)
+	var second := BASE * sqrt(2.0)
+	# Skinned infield: dirt from the plate out to the arc, cut off at the
+	# foul lines the way it is on a real field.
+	_sector(0.0, SKIN, -FOUL, FOUL, 0.06, _dirt)
+	# Grass inside the base paths — a diamond, inset from the paths by PATH.
+	var inset := PATH * sqrt(2.0)
+	_poly([
+		Vector2(0.0, inset),
+		Vector2(b - inset * 0.5, b),
+		Vector2(0.0, second - inset),
+		Vector2(-b + inset * 0.5, b),
+	], 0.09, _cut)
+	# Plate circle and the mound, both dirt cut back into that grass. Each
+	# marking sits a clear step above whatever it covers, so no two coplanar
+	# surfaces are left to fight over the depth buffer.
+	_disc(Vector2.ZERO, 3.4, 0.12, _dirt)
+	_disc(Vector2(0.0, MOUND), 2.7, 0.12, _dirt)
+	_disc(Vector2(0.0, MOUND), 1.8, 0.17, _dirt)
+	_disc(Vector2(0.0, MOUND), 0.9, 0.21, _dirt)
+	_box(Vector3(0, 0.25, MOUND), Vector3(0.6, 0.04, 0.16), _chalk)
+	# On-deck circles, out in foul ground where only grass lies under them.
+	for side: float in [-1.0, 1.0]:
+		var a := side * (FOUL + 0.11)
+		_disc(Vector2(sin(a), cos(a)) * 13.0, 1.5, 0.06, _dirt)
 
-	# Bases and plate.
-	_box(Vector3(0, 0.09, 0.2), Vector3(0.5, 0.05, 0.5), _chalk, PI * 0.25)
-	for at: Vector3 in [Vector3(b, 0.09, b), Vector3(0, 0.09, BASE * sqrt(2.0)), Vector3(-b, 0.09, b)]:
-		_box(at, Vector3(0.55, 0.06, 0.55), _chalk)
-
-	# Foul lines from the plate out to the poles.
+	# Plate, bases, and the chalk.
+	_box(Vector3(0, 0.17, 0.26), Vector3(0.45, 0.04, 0.45), _chalk, PI * 0.25)
+	for at: Vector3 in [Vector3(b, 0.17, b), Vector3(0, 0.17, second), Vector3(-b, 0.17, b)]:
+		_box(at, Vector3(0.5, 0.05, 0.5), _chalk)
+	# Foul lines run from the plate out to the poles, along the 45s.
 	for side: float in [-1.0, 1.0]:
 		var a := side * FOUL
-		_box(Vector3(sin(a), 0.09, cos(a)) * FENCE * 0.5, Vector3(0.14, 0.04, FENCE), _chalk, a)
-	# Batter's boxes.
+		_box(Vector3(sin(a), 0.16, cos(a)) * FENCE * 0.5, Vector3(0.12, 0.03, FENCE), _chalk, a)
+	# Batter's boxes: chalk outline with the dirt showing through the middle.
 	for side: float in [-1.0, 1.0]:
-		_box(Vector3(side * 1.1, 0.09, 0.1), Vector3(1.2, 0.04, 1.8), _chalk)
-		_box(Vector3(side * 1.1, 0.10, 0.1), Vector3(0.95, 0.04, 1.55), _dirt)
+		_box(Vector3(side * 1.05, 0.16, 0.26), Vector3(1.25, 0.03, 1.85), _chalk)
+		_box(Vector3(side * 1.05, 0.19, 0.26), Vector3(1.05, 0.03, 1.65), _dirt)
+	# Catcher's box behind the plate.
+	_box(Vector3(0, 0.16, -1.15), Vector3(1.9, 0.03, 2.4), _chalk)
+	_box(Vector3(0, 0.19, -1.15), Vector3(1.7, 0.03, 2.2), _dirt)
+	# Coach's boxes down each line.
+	for side: float in [-1.0, 1.0]:
+		var a := side * (FOUL + 0.085)
+		_box(Vector3(sin(a), 0.16, cos(a)) * 17.0, Vector3(1.4, 0.03, 4.0), _chalk, a)
+
+
+## An annulus sector laid flat: the real shape of a wedge of a ball field, so
+## it tapers to nothing at the middle instead of staying full width.
+func _sector(r0: float, r1: float, a0: float, a1: float, y: float, material: Material) -> void:
+	var steps := maxi(2, int(ceil((a1 - a0) / 0.12)))
+	var verts := PackedVector3Array()
+	for i in steps:
+		var t0 := a0 + (a1 - a0) * i / float(steps)
+		var t1 := a0 + (a1 - a0) * (i + 1) / float(steps)
+		var i0 := Vector3(sin(t0), 0.0, cos(t0)) * r0
+		var i1 := Vector3(sin(t1), 0.0, cos(t1)) * r0
+		var o0 := Vector3(sin(t0), 0.0, cos(t0)) * r1
+		var o1 := Vector3(sin(t1), 0.0, cos(t1)) * r1
+		verts.append_array([i0, o0, o1, i0, o1, i1])
+	_flat_mesh(verts, y, material)
+
+
+func _disc(centre: Vector2, radius: float, y: float, material: Material) -> void:
+	var steps := 28
+	var verts := PackedVector3Array()
+	var mid := Vector3(centre.x, 0.0, centre.y)
+	for i in steps:
+		var t0 := TAU * i / float(steps)
+		var t1 := TAU * (i + 1) / float(steps)
+		verts.append_array([mid,
+			mid + Vector3(sin(t0), 0.0, cos(t0)) * radius,
+			mid + Vector3(sin(t1), 0.0, cos(t1)) * radius])
+	_flat_mesh(verts, y, material)
+
+
+## Convex polygon, as a fan off the first point.
+func _poly(points: Array, y: float, material: Material) -> void:
+	var verts := PackedVector3Array()
+	for i in range(1, points.size() - 1):
+		var a: Vector2 = points[0]
+		var b: Vector2 = points[i]
+		var c: Vector2 = points[i + 1]
+		verts.append_array([Vector3(a.x, 0.0, a.y), Vector3(b.x, 0.0, b.y), Vector3(c.x, 0.0, c.y)])
+	_flat_mesh(verts, y, material)
+
+
+## Ground markings are flat, unlit-ish and never collide — you walk on the
+## world's own ground plane, these only paint it.
+func _flat_mesh(verts: PackedVector3Array, y: float, material: Material) -> void:
+	if verts.is_empty():
+		return
+	var normals := PackedVector3Array()
+	for v in verts:
+		normals.append(Vector3.UP)
+	var arrays := []
+	arrays.resize(Mesh.ARRAY_MAX)
+	arrays[Mesh.ARRAY_VERTEX] = verts
+	arrays[Mesh.ARRAY_NORMAL] = normals
+	var mesh := ArrayMesh.new()
+	mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
+	var mi := MeshInstance3D.new()
+	mi.mesh = mesh
+	mi.material_override = material
+	mi.position.y = y
+	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	add_child(mi)
 
 
 # ------------------------------------------------------------------ structure
@@ -122,24 +208,40 @@ func _fence() -> void:
 		add_child(mark)
 
 
+## Chain link behind the plate, on an arc centred on it. The wings used to be
+## placed by one angle and yawed by another, which left them sitting at 70
+## degrees to the arc — the main reason the whole thing read as sloppy.
 func _backstop() -> void:
-	# Chain link behind the plate, curved round on both sides.
-	var mesh := _mat(Color(0.72, 0.76, 0.72, 0.28), 0.6, 0.3)
+	var mesh := _mat(Color(0.74, 0.78, 0.74, 0.30), 0.6, 0.3)
 	mesh.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA_SCISSOR
 	mesh.alpha_scissor_threshold = 0.2
 	mesh.cull_mode = BaseMaterial3D.CULL_DISABLED
-	for pair in [[-0.62, -7.2], [0.0, -8.6], [0.62, -7.2]]:
-		var a: float = float(pair[0])
-		var r: float = absf(float(pair[1]))
-		var at := Vector3(sin(a) * r, 0.0, -r * cos(a))
-		_box(at + Vector3(0, 2.6, 0), Vector3(7.2, 5.2, 0.14), mesh, a, true)
-		_box(at + Vector3(0, 2.6, 0) + Vector3(3.5 * cos(a), 0, 3.5 * sin(a)),
-			Vector3(0.22, 5.4, 0.22), _steel, a)
-	_box(Vector3(0, 1.1, -6.6), Vector3(9.0, 2.2, 0.2), _pad, 0.0, true)
+
+	var r := 8.6
+	var spread := 0.85          # half the arc, either side of straight back
+	var panels := 7
+	for i in panels:
+		# Measured round from straight behind the plate, so position and yaw
+		# come from the same angle and every panel sits square to the arc.
+		var t0 := PI - spread + (2.0 * spread) * i / float(panels)
+		var t1 := PI - spread + (2.0 * spread) * (i + 1) / float(panels)
+		var a := (t0 + t1) * 0.5
+		var chord := 2.0 * r * sin((t1 - t0) * 0.5)
+		var at := Vector3(sin(a), 0.0, cos(a)) * r
+		_box(at + Vector3(0, 1.1, 0), Vector3(chord + 0.12, 2.2, 0.22), _pad, a, true)
+		_box(at + Vector3(0, 3.9, 0), Vector3(chord + 0.12, 3.4, 0.08), mesh, a, true)
+		# Canopy leaning out over the catcher, the way they always do.
+		var lean := Vector3(sin(a), 0.0, cos(a)) * -0.8
+		_box(at + lean + Vector3(0, 5.7, 0), Vector3(chord + 0.12, 0.08, 1.7), mesh, a)
+	# Posts on every panel edge, carried up past the canopy.
+	for i in panels + 1:
+		var t := PI - spread + (2.0 * spread) * i / float(panels)
+		var at := Vector3(sin(t), 0.0, cos(t)) * r
+		_box(at + Vector3(0, 2.9, 0), Vector3(0.16, 5.8, 0.16), _steel, t, true)
 
 	var sign := Label3D.new()
 	sign.text = "ALPHARETTA HIGH SCHOOL"
-	sign.position = Vector3(0, 6.0, -8.6)
+	sign.position = Vector3(0, 6.6, -r - 0.2)
 	sign.font_size = 54
 	sign.modulate = Color("f6c000")
 	sign.outline_modulate = Color("10241a")
@@ -149,7 +251,7 @@ func _backstop() -> void:
 
 	var sub := Label3D.new()
 	sub.text = "HOME OF THE RAIDERS   ·   BASEBALL FIELD"
-	sub.position = Vector3(0, 5.0, -8.6)
+	sub.position = Vector3(0, 5.6, -r - 0.2)
 	sub.font_size = 26
 	sub.modulate = Color("f2f2ea")
 	sub.outline_modulate = Color("10241a")
@@ -158,18 +260,44 @@ func _backstop() -> void:
 	add_child(sub)
 
 
+## Somewhere out on the field, in the frame of something facing along `yaw`:
+## +x is to its right, +z is straight ahead of it.
+func _out(at: Vector3, yaw: float, right: float, up: float, ahead: float) -> Vector3:
+	return at + Vector3(cos(yaw) * right + sin(yaw) * ahead, up,
+		-sin(yaw) * right + cos(yaw) * ahead)
+
+
+## Dugouts either side of the plate, dug in behind a low wall, roofed, opening
+## on to the field. Everything is placed in the dugout's own frame — the old
+## version mixed local and world offsets, so the benches slid sideways out of
+## the shelters on both sides.
 func _dugouts() -> void:
 	var block := _mat(Color("b9b4a6"), 0.9)
+	var roof := _mat(Color("55606d"), 0.7)
 	for side: float in [-1.0, 1.0]:
-		var a := side * (FOUL + 0.13)
-		var at := Vector3(sin(a), 0.0, cos(a)) * 22.0
-		_box(at + Vector3(0, 1.1, 0), Vector3(9.0, 2.2, 0.35), block, a, true)
-		_box(at + Vector3(0, 0.25, side * 1.6), Vector3(8.6, 0.5, 1.2), block, a)
-		_box(at + Vector3(0, 0.85, side * 1.9), Vector3(8.6, 0.14, 0.5), _mat(Color("6b4a2f"), 0.8), a)
-		_box(at + Vector3(0, 2.5, side * 1.4), Vector3(9.4, 0.18, 3.6), _mat(Color("55606d"), 0.7), a, true)
-		for post: float in [-4.2, 4.2]:
-			var off := Vector3(cos(a) * post, 1.2, -sin(a) * post)
-			_box(at + off + Vector3(0, 0, side * 3.0), Vector3(0.18, 2.4, 0.18), _steel)
+		var yaw := side * (FOUL + 0.14)
+		var at := Vector3(sin(yaw), 0.0, cos(yaw)) * 23.0
+		# Back wall, two ends, and a low wall along the front with the middle
+		# left open so you can see in.
+		_box(_out(at, yaw, 0, 1.3, 1.9), Vector3(9.4, 2.6, 0.3), block, yaw, true)
+		for end_x: float in [-4.55, 4.55]:
+			_box(_out(at, yaw, end_x, 1.3, 0.6), Vector3(0.3, 2.6, 2.9), block, yaw, true)
+		for front_x: float in [-3.6, 3.6]:
+			_box(_out(at, yaw, front_x, 0.55, -0.8), Vector3(2.2, 1.1, 0.25), block, yaw, true)
+		# Bench against the back wall, and the step down into it.
+		_box(_out(at, yaw, 0, 0.45, 1.35), Vector3(8.6, 0.12, 0.55), _mat(Color("6b4a2f"), 0.8), yaw, true)
+		_box(_out(at, yaw, 0, 0.22, 1.35), Vector3(8.6, 0.44, 0.1), block, yaw)
+		_box(_out(at, yaw, 0, 0.06, 0.3), Vector3(8.8, 0.12, 3.2), _mat(Color("8e8b82"), 0.9), yaw)
+		# Roof, on two posts at the open front.
+		_box(_out(at, yaw, 0, 2.7, 0.5), Vector3(9.8, 0.2, 4.2), roof, yaw, true)
+		for post_x: float in [-4.3, 4.3]:
+			_box(_out(at, yaw, post_x, 1.3, -1.4), Vector3(0.16, 2.6, 0.16), _steel, yaw, true)
+		# Netting over the front, so nothing lands in the bench.
+		var net := _mat(Color(0.74, 0.78, 0.74, 0.26), 0.6, 0.3)
+		net.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA_SCISSOR
+		net.alpha_scissor_threshold = 0.2
+		net.cull_mode = BaseMaterial3D.CULL_DISABLED
+		_box(_out(at, yaw, 0, 1.9, -1.45), Vector3(8.8, 1.4, 0.06), net, yaw)
 
 
 func _bleachers() -> void:

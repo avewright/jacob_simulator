@@ -64,12 +64,18 @@ func _physics_process(delta: float) -> void:
 	if _garage:
 		_garage.position.y = GAR_H * 0.5 + _g_open * (GAR_H - 0.15)
 
+	# Only for someone actually up on the stoop — the door is a storey up, and
+	# it used to open for anyone standing underneath it on the paving.
 	var want_f := 0.0
-	if player and not GameState.in_car and _flat(player, Vector3(HOME.x + UNIT_W * 0.5 + 2.0, 0, 15.1)) < 6.5:
-		want_f = 1.0
-	_f_open = move_toward(_f_open, want_f, 3.0 * delta)
+	if player and not GameState.in_car:
+		var on_stoop: bool = player.global_position.y > to_global(Vector3.ZERO).y + STOOP_Y - 1.4
+		if on_stoop and _flat(player, Vector3(HOME.x + UNIT_W * 0.5 + 1.6, 0, 15.1)) < 4.5:
+			want_f = 1.0
+	_f_open = move_toward(_f_open, want_f, 2.2 * delta)
 	if _front:
-		_front.position.z = 15.1 - _f_open * 1.05
+		# Ry sends +Z toward -X at negative angles, so this swings the leaf in
+		# off the stoop and into the hall.
+		_front.rotation.y = -_f_open * deg_to_rad(84.0)
 
 
 func _flat(who: Node3D, local_point: Vector3) -> float:
@@ -218,7 +224,8 @@ func _unit(at: Vector3, yaw: float, is_home: bool) -> void:
 	_stoop_ramp(unit, hw - 1.5, 1.8, -hd - 1.8, -hd - 7.4, STOOP_Y, 0.02)
 	for st in 9:
 		var t: float = (st + 1) / 10.0
-		_at(unit, Vector3(hw - 1.5, 0.12 + (1.0 - t) * STOOP_Y, -hd - 1.8 - t * 5.6), Vector3(2.0, 0.06, 0.12), _trim, false)
+		_at(unit, Vector3(hw - 1.5, STOOP_Y - t * (STOOP_Y - 0.02) + 0.03, -hd - 1.8 - t * 5.6),
+			Vector3(2.0, 0.06, 0.12), _trim, false)
 	for side in [-1.05, 1.05]:
 		_at(unit, Vector3(hw - 1.5 + side, STOOP_Y * 0.5 + 0.9, -hd - 4.6), Vector3(0.08, 0.08, 6.4), _dark, false)
 
@@ -246,7 +253,11 @@ func _stoop_ramp(parent: Node3D, x_centre: float, width: float, z_from: float, z
 	var body := StaticBody3D.new()
 	body.collision_layer = 1
 	body.collision_mask = 0
-	body.position = Vector3(x_centre, (y_from + y_to) * 0.5 - thick * 0.5 * cos(ang), (z_from + z_to) * 0.5)
+	# You walk on the top face, not the centre line. Tilting the slab shifts
+	# that face along the run, so it is taken back out here — otherwise the
+	# surface stops short at the top and you meet a step you cannot climb.
+	body.position = Vector3(x_centre, (y_from + y_to) * 0.5 - thick * 0.5 * cos(ang),
+		(z_from + z_to) * 0.5 - thick * 0.5 * sin(ang))
 	body.rotation.x = ang
 	var size := Vector3(width, thick, sqrt(run * run + rise * rise))
 	var col := CollisionShape3D.new()
@@ -334,7 +345,9 @@ func _home_interior() -> void:
 	_box(Vector3(-13.65, f1 - 0.1, HOME.z), Vector3(4.3, 0.2, UNIT_D), _wall_in, true)
 	_box(Vector3(-17.15, f1 - 0.1, 8.7), Vector3(2.7, 0.2, 1.4), _wall_in, true)
 	_box(Vector3(-17.15, f1 - 0.1, 15.6), Vector3(2.7, 0.2, 0.8), _wall_in, true)
-	_ramp_c(-17.15, 2.2, 14.8, 9.8, 0.02, f1 - 0.1)
+	# All the way to the slab edge at z 9.4 and up to its top at f1. It used to
+	# stop 47cm short and 10cm low: a hole, then a step.
+	_ramp_c(-17.15, 2.2, 14.8, 9.4, 0.02, f1)
 	_box(Vector3(-15.8, f1 + 0.5, 12.3), Vector3(0.1, 1.0, 5.8), _mat(Color("5b4432"), 0.6), true)
 
 	# Living room on the first floor, with two mattresses.
@@ -359,15 +372,29 @@ func _home_interior() -> void:
 	# Exterior stoop: a ramp, not treads, since nothing here can climb a step.
 	# Decorative nosings sit on top so it still reads as a stair.
 	_ramp_x(dz, 1.8, -5.0, -10.6, 0.02, f1)
-	_box(Vector3(-10.95, f1 - 0.08, dz), Vector3(1.3, 0.16, 1.8), _trim, true)
+	# Landing begins exactly where the ramp surface tops out. It used to start
+	# 30cm early and 16cm proud, which is the step Jacob could not climb.
+	_box(Vector3(-11.1, f1 - 0.08, dz), Vector3(1.0, 0.16, 1.8), _trim, true)
 	for st in 9:
 		var t: float = (st + 1) / 10.0
-		_box(Vector3(-5.0 - t * 5.6, 0.12 + t * f1, dz), Vector3(0.12, 0.06, 1.8), _trim, false)
+		_box(Vector3(-5.0 - t * 5.6, 0.02 + t * (f1 - 0.02) + 0.03, dz),
+			Vector3(0.12, 0.06, 1.8), _trim, false)
 	for side in [-0.95, 0.95]:
 		_box(Vector3(-8.0, f1 * 0.5 + 0.9, dz + side), Vector3(6.4, 0.08, 0.08), _dark, false)
 
-	# Garage surround and door.
+	# Garage apron, so the opening reads as somewhere you drive rather than a
+	# hole in a wall, with the usual pair of tyre stripes worn into it.
+	_box(Vector3(fx + 3.0, 0.016, 12.0), Vector3(6.0, 0.02, GAR_W + 1.2),
+		_mat(Color("9a978d"), 0.9), false)
+	for tz in [10.9, 13.1]:
+		_box(Vector3(fx + 3.0, 0.019, tz), Vector3(5.6, 0.02, 0.7),
+			_mat(Color("8d8a80"), 0.95), false)
+
+	# Garage surround, door and its overhead track.
 	_box(Vector3(fx - 0.06, GAR_H * 0.5, 12.0), Vector3(0.16, GAR_H + 0.4, GAR_W + 0.5), _trim, false)
+	for rz in [-GAR_W * 0.5 + 0.1, GAR_W * 0.5 - 0.1]:
+		_box(Vector3(fx - 0.9, GAR_H + 0.18, 12.0 + rz), Vector3(1.7, 0.07, 0.07),
+			_mat(Color("8c9096"), 0.4, 0.5), false)
 	_garage = _slider(Vector3(fx - 0.14, GAR_H * 0.5, 12.0), Vector3(0.12, GAR_H, GAR_W), _trim)
 	for r in 4:
 		var panel := MeshInstance3D.new()
@@ -378,9 +405,17 @@ func _home_interior() -> void:
 		panel.position = Vector3(-0.08, -0.95 + r * 0.62, 0)
 		_garage.add_child(panel)
 
-	# Front door and surround.
-	_box(Vector3(fx - 0.05, f1 + 1.15, dz), Vector3(0.14, 2.5, 1.35), _trim, false)
-	_front = _slider(Vector3(fx - 0.13, f1 + 1.15, dz), Vector3(0.12, 2.3, 1.1), _dark)
+	# Front door: hinged on the near jamb at z 14.55, swinging inward.
+	_box(Vector3(fx - 0.05, f1 + 1.16, dz), Vector3(0.14, 2.5, 1.35), _trim, false)
+	_front = _hinged(Vector3(fx - 0.13, f1 + 1.16, 14.55), Vector3(0.1, 2.2, 1.15), _dark)
+	# Panelling, a kick plate and a handle, all carried by the leaf.
+	for py in [-0.62, 0.24]:
+		_leaf_box(_front, Vector3(-0.055, py, 0.575), Vector3(0.02, 0.62, 0.72),
+			_mat(Color("2a2b2e"), 0.5))
+	_leaf_box(_front, Vector3(-0.07, -0.02, 1.02), Vector3(0.05, 0.16, 0.05),
+		_mat(Color("caa94e"), 0.3, 0.7))
+	_leaf_box(_front, Vector3(0.07, -0.02, 1.02), Vector3(0.05, 0.16, 0.05),
+		_mat(Color("caa94e"), 0.3, 0.7))
 
 	_window_at(Vector3(fx - 0.02, f1 + 1.3, 9.6), true)
 	_window_at(Vector3(fx - 0.02, EAVE - 1.6, 12.0), true)
@@ -408,7 +443,10 @@ func _ramp_x(z_centre: float, width: float, x_from: float, x_to: float, y_from: 
 	var body := StaticBody3D.new()
 	body.collision_layer = 1
 	body.collision_mask = 0
-	body.position = Vector3((x_from + x_to) * 0.5, (y_from + y_to) * 0.5 - thick * 0.5 * cos(ang), z_centre)
+	# Same correction, but this one tilts about Z so the top face slides
+	# along X instead, and the sign goes the other way.
+	body.position = Vector3((x_from + x_to) * 0.5 + thick * 0.5 * sin(ang),
+		(y_from + y_to) * 0.5 - thick * 0.5 * cos(ang), z_centre)
 	body.rotation.z = ang
 	var size := Vector3(sqrt(run * run + rise * rise), thick, width)
 	var col := CollisionShape3D.new()
@@ -471,7 +509,11 @@ func _ramp_c(x_centre: float, width: float, z_from: float, z_to: float, y_from: 
 	var body := StaticBody3D.new()
 	body.collision_layer = 1
 	body.collision_mask = 0
-	body.position = Vector3(x_centre, (y_from + y_to) * 0.5 - thick * 0.5 * cos(ang), (z_from + z_to) * 0.5)
+	# You walk on the top face, not the centre line. Tilting the slab shifts
+	# that face along the run, so it is taken back out here — otherwise the
+	# surface stops short at the top and you meet a step you cannot climb.
+	body.position = Vector3(x_centre, (y_from + y_to) * 0.5 - thick * 0.5 * cos(ang),
+		(z_from + z_to) * 0.5 - thick * 0.5 * sin(ang))
 	body.rotation.x = ang
 	var size := Vector3(width, thick, sqrt(run * run + rise * rise))
 	var col := CollisionShape3D.new()
@@ -597,6 +639,40 @@ func _jacks_suburban() -> void:
 
 # ------------------------------------------------------------------ helpers
 
+## A door on hinges. The body sits on the hinge line and everything it carries
+## hangs off it along +Z, so turning the body swings the leaf the way a door
+## actually moves instead of sliding it sideways into the wall.
+func _hinged(hinge: Vector3, size: Vector3, material: Material) -> AnimatableBody3D:
+	var body := AnimatableBody3D.new()
+	body.collision_layer = 1
+	body.collision_mask = 0
+	body.sync_to_physics = false
+	body.position = hinge
+	add_child(body)
+	_leaf_box(body, Vector3(0, 0, size.z * 0.5), size, material, true)
+	return body
+
+
+## Something carried by a hinged leaf, placed relative to the hinge.
+func _leaf_box(leaf: Node3D, at: Vector3, size: Vector3, material: Material,
+		solid: bool = false) -> void:
+	var mi := MeshInstance3D.new()
+	var box := BoxMesh.new()
+	box.size = size
+	mi.mesh = box
+	mi.material_override = material
+	mi.position = at
+	leaf.add_child(mi)
+	if not solid:
+		return
+	var col := CollisionShape3D.new()
+	var shape := BoxShape3D.new()
+	shape.size = size
+	col.shape = shape
+	col.position = at
+	leaf.add_child(col)
+
+
 func _slider(at: Vector3, size: Vector3, material: Material) -> AnimatableBody3D:
 	var body := AnimatableBody3D.new()
 	body.collision_layer = 1
@@ -616,33 +692,6 @@ func _slider(at: Vector3, size: Vector3, material: Material) -> AnimatableBody3D
 	body.add_child(mi)
 	add_child(body)
 	return body
-
-
-func _ramp_local(parent: Node3D, x_centre: float, width: float, z_from: float, z_to: float, y_from: float, y_to: float) -> void:
-	var run := absf(z_to - z_from)
-	var rise := absf(y_to - y_from)
-	var slope := atan2(rise, run)
-	var climbs := (z_to > z_from) == (y_to > y_from)
-	var ang := -slope if climbs else slope
-	var thick := 0.28
-	var body := StaticBody3D.new()
-	body.collision_layer = 1
-	body.collision_mask = 0
-	body.position = Vector3(x_centre, (y_from + y_to) * 0.5 - thick * 0.5 * cos(ang), (z_from + z_to) * 0.5)
-	body.rotation.x = ang
-	var size := Vector3(width, thick, sqrt(run * run + rise * rise))
-	var col := CollisionShape3D.new()
-	var shape := BoxShape3D.new()
-	shape.size = size
-	col.shape = shape
-	body.add_child(col)
-	var mi := MeshInstance3D.new()
-	var box := BoxMesh.new()
-	box.size = size
-	mi.mesh = box
-	mi.material_override = _wall_in
-	body.add_child(mi)
-	parent.add_child(body)
 
 
 func _bush(at: Vector3, r: float) -> void:

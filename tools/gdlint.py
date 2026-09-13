@@ -39,11 +39,6 @@ ARITY = {
 KNOWN_OK = {
     "scripts/games/tennis_match.gd:497",   # _trail is Array[MeshInstance3D]
     "scripts/jacob_look.gd:261",           # lump[0] is a Vector3, copy ctor
-    "scripts/jacob_look.gd:342",           # ... as MeshInstance3D
-    "scripts/jacob_look.gd:353",           # ... as MeshInstance3D
-    "scripts/chastain_place.gd:272",       # both ternary branches are float
-    "scripts/chastain_place.gd:433",       # both ternary branches are float
-    "scripts/chastain_place.gd:460",       # both ternary branches are Vector3
 }
 
 
@@ -82,6 +77,37 @@ def split_args(text: str) -> list:
     return out
 
 
+def _strip_calls(expr: str) -> str:
+    """Drop everything inside brackets. What is left is the expression's own
+    shape: `Vector3(side * 2, 0, 0)` becomes `Vector3()`, because the result is
+    a Vector3 whatever `side` turns out to be."""
+    out, depth = "", 0
+    for ch in expr:
+        if ch in "([":
+            depth += 1
+            if depth == 1:
+                out += ch
+        elif ch in ")]":
+            depth -= 1
+            if depth == 0:
+                out += ch
+        elif depth == 0:
+            out += ch
+    return out
+
+
+def _drives_type(expr: str, var: str) -> bool:
+    """True when `var` actually decides the type of `expr`, so `var x := expr`
+    cannot infer. A Variant inside a constructor's arguments, inside a ternary
+    condition, or behind an `as` cast does not."""
+    if re.search(r"\bas\s+\w+", expr):
+        return False
+    ternary = re.match(r"(.+?)\s+if\s+.+?\s+else\s+(.+)$", expr)
+    if ternary:
+        return _drives_type(ternary.group(1), var) or _drives_type(ternary.group(2), var)
+    return re.search(r"(?<![\w.])%s(?![\w])" % re.escape(var), _strip_calls(expr)) is not None
+
+
 def check(path: str) -> list:
     src = open(path).read()
     lines = src.split("\n")
@@ -111,7 +137,7 @@ def check(path: str) -> list:
             infer = re.match(r"\s*var\s+(\w+)\s*:=\s*(.+)$", line)
             if infer:
                 for var, _ in variants:
-                    if re.search(r"(?<![\w.])%s(?![\w])" % re.escape(var), infer.group(2)):
+                    if _drives_type(infer.group(2), var):
                         found.append((path, n, "inference",
                                       "var %s := ... uses untyped loop var '%s' (write "
                                       "`for %s: <type> in [...]`)" % (infer.group(1), var, var)))
