@@ -29,16 +29,25 @@ import os
 import re
 import sys
 
+# Valid argument counts per built-in constructor. Each of these also has a
+# copy constructor taking one value, which is why 1 is allowed nearly
+# everywhere — `Vector3(some_vector3)` is legal and is not an arity error.
 ARITY = {
-    "Vector2": (2,), "Vector3": (3,), "Vector2i": (2,), "Vector3i": (3,),
-    "Color": (1, 2, 3, 4), "Rect2": (2, 3, 4), "Basis": (2, 3),
-    "Transform2D": (1, 2, 3, 4), "Transform3D": (2, 4), "Quaternion": (2, 3, 4),
+    "Vector2": (0, 1, 2), "Vector2i": (0, 1, 2),
+    "Vector3": (0, 1, 3), "Vector3i": (0, 1, 3),
+    "Vector4": (0, 1, 4), "Vector4i": (0, 1, 4),
+    "Color": (0, 1, 2, 3, 4),
+    "Rect2": (0, 1, 2, 4), "Rect2i": (0, 1, 2, 4),
+    "Basis": (0, 1, 2, 3),
+    "Transform2D": (0, 1, 2, 3, 4),
+    "Transform3D": (0, 1, 2, 4),
+    "Quaternion": (0, 1, 2, 4),
+    "Plane": (0, 1, 2, 3, 4),
 }
 
 # Verified by hand: typed ternary branches, or an `as` cast, or a typed array.
 KNOWN_OK = {
     "scripts/games/tennis_match.gd:497",   # _trail is Array[MeshInstance3D]
-    "scripts/jacob_look.gd:261",           # lump[0] is a Vector3, copy ctor
 }
 
 
@@ -78,21 +87,30 @@ def split_args(text: str) -> list:
 
 
 def _strip_calls(expr: str) -> str:
-    """Drop everything inside brackets. What is left is the expression's own
-    shape: `Vector3(side * 2, 0, 0)` becomes `Vector3()`, because the result is
-    a Vector3 whatever `side` turns out to be."""
-    out, depth = "", 0
+    """Drop the arguments of any call, keeping everything else.
+
+    `Vector3(side * 2, 0, 0)` becomes `Vector3()`, because the result is a
+    Vector3 whatever `side` turns out to be. Grouping brackets are NOT calls
+    and their contents are kept: `(i + corner.x) / float(n)` still shows
+    `corner`, because there the Variant really does decide the type. A bracket
+    counts as a call's only when something is attached to its left.
+    """
+    out, stack, prev = "", [], ""
     for ch in expr:
+        inside_call = any(stack)
         if ch in "([":
-            depth += 1
-            if depth == 1:
+            if not inside_call:
                 out += ch
+            stack.append(bool(prev) and (prev.isalnum() or prev == "_"))
         elif ch in ")]":
-            depth -= 1
-            if depth == 0:
+            if stack:
+                stack.pop()
+            if not any(stack):
                 out += ch
-        elif depth == 0:
+        elif not inside_call:
             out += ch
+        if not ch.isspace():
+            prev = ch
     return out
 
 

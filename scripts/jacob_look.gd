@@ -12,6 +12,14 @@ const FACE_TEX := preload("res://assets/characters/jacob_face.png")
 ## Nudge in the inspector if the photo lands high, low, or on the back of the head.
 @export var face_offset := Vector3(0.0, 0.06, 0.15)
 @export var face_size := Vector2(0.26, 0.33)
+## How far round the head the photo wraps, in degrees. The frontal outline
+## stays exactly face_size whatever these are set to — only the depth changes.
+@export var face_wrap_h := 46.0
+@export var face_wrap_v := 34.0
+## How far the edges pull back toward the skull. 0 gives the old flat card.
+@export var face_depth := 0.085
+## Turn the face with the head bone rather than only with the body.
+@export var face_follows_head := true
 ## Curly brown, off the reference photo. Sits around the face quad rather than
 ## over it, and tracks the head bone the same way.
 @export var show_hair := true
@@ -20,6 +28,11 @@ const FACE_TEX := preload("res://assets/characters/jacob_face.png")
 @export var hair_scale := 1.0
 ## Company badge on a lanyard, because he works somewhere now.
 @export var show_badge := true
+## The model ships with its own eyes, brows, skin and hair under the photo.
+## Left alone they show around the cut-out and read as a second face.
+@export var dress_head := true
+## Sampled from the bottom edge of the photo, so the neck below it matches.
+@export var skin_tint := Color("c48f7e")
 ## Prints the measured head-bone position once, to dial face_offset in.
 @export var face_debug := false
 
@@ -33,6 +46,8 @@ var _arm_rest: Transform3D
 var _skel: Skeleton3D
 var _head_bone: int = -1
 var _hair: Node3D
+var _head_rest := Basis.IDENTITY
+var _head_turn := Basis.IDENTITY
 
 
 func _ready() -> void:
@@ -196,8 +211,6 @@ func _attach_face() -> void:
 				_arm_rest = _skel.get_bone_pose(_arm_bone)
 				break
 
-	var quad := QuadMesh.new()
-	quad.size = face_size
 	var mat := StandardMaterial3D.new()
 	mat.albedo_texture = FACE_TEX
 	# ALPHA_SCISSOR, not ALPHA: alpha-blended materials skip the depth write and
@@ -207,17 +220,26 @@ func _attach_face() -> void:
 	mat.alpha_scissor_threshold = 0.4
 	mat.cull_mode = BaseMaterial3D.CULL_DISABLED
 	mat.shading_mode = BaseMaterial3D.SHADING_MODE_PER_PIXEL
-	mat.roughness = 0.85
-	quad.material = mat
+	mat.roughness = 0.62
+	# Skin is not chalk. A little rim keeps him legible against a dark street
+	# once the day/night cycle has turned the lights down.
+	mat.rim_enabled = true
+	mat.rim = 0.32
+	mat.rim_tint = 0.45
+	mat.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS_ANISOTROPIC
 
 	# Parented to JacobLook rather than the head bone: this node carries the
 	# character yaw at unit scale, so +Z is reliably "out the front of the face"
 	# without depending on the rig's bone-space axes.
 	_face = MeshInstance3D.new()
 	_face.name = "Face"
-	_face.mesh = quad
+	_face.mesh = _face_shell()
+	_face.material_override = mat
 	_face.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	add_child(_face)
+	if _skel and _head_bone >= 0:
+		_head_rest = _skel.get_bone_global_rest(_head_bone).basis.orthonormalized()
+	_dress_head()
 	_build_hair()
 	_build_badge()
 	_update_face()
@@ -225,6 +247,86 @@ func _attach_face() -> void:
 		var bone := "none" if _head_bone < 0 else str(_head_bone)
 		print("[jacob_look] head bone=%s local=%s face=%s actor_scale=%s"
 			% [bone, _head_pos(), _face.position, _actor.scale])
+
+
+## The photo used to be a flat card, which is why it read as a sticker: at any
+## angle off dead-centre you were looking at a piece of paper, and being flat it
+## took the same light across its whole width.
+##
+## It is mapped onto a curved shell now — a patch of an ellipsoid. The apex sits
+## exactly where the card's plane was and the radii are solved from face_size,
+## so the outline from straight on is unchanged to the millimetre. All that is
+## added is depth: the edges pull back toward the skull, the cheeks and brow
+## catch light separately, and it holds up when the camera swings round.
+func _face_shell() -> ArrayMesh:
+	var th := deg_to_rad(maxf(face_wrap_h, 1.0))
+	var pv := deg_to_rad(maxf(face_wrap_v, 1.0))
+	# Solved, not chosen: whatever the wrap angles are, the silhouette is
+	# face_size. Widening the wrap deepens the face, it does not fatten it.
+	var rx := face_size.x * 0.5 / sin(th)
+	var ry := face_size.y * 0.5 / sin(pv)
+	var rz := face_depth
+	var cols := 18
+	var rows := 22
+
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	for j in rows:
+		for i in cols:
+			for corner: Vector2 in [Vector2(0, 0), Vector2(1, 0), Vector2(1, 1),
+					Vector2(0, 0), Vector2(1, 1), Vector2(0, 1)]:
+				var u := (i + corner.x) / float(cols)
+				var v := (j + corner.y) / float(rows)
+				var a := (u * 2.0 - 1.0) * th        # round the head
+				var b := (1.0 - v * 2.0) * pv        # v runs down the image
+				# Normal of the parametric surface, worked out by hand so the
+				# lighting is exact rather than averaged off the triangles.
+				st.set_normal(Vector3(
+					ry * rz * sin(a) * cos(b) * cos(b),
+					rx * rz * cos(a) * cos(a) * sin(b),
+					rx * ry * cos(a) * cos(b)).normalized())
+				st.set_uv(Vector2(u, v))
+				st.add_vertex(Vector3(
+					rx * sin(a),
+					ry * sin(b),
+					rz * (cos(a) * cos(b) - 1.0)))   # 0 at the apex, negative at the edges
+	st.generate_tangents()
+	return st.commit()
+
+
+## The model ships with its own eyes, eyebrows, skin and hair underneath the
+## photo. Left alone the eyes and brows show around the edge of the cut-out and
+## you get two faces at once; the skin and hair are the wrong colours for him.
+func _dress_head() -> void:
+	if not dress_head:
+		return
+	var head := _actor.find_child("Suit_Head", true, false) as MeshInstance3D
+	if head == null or head.mesh == null:
+		return
+	# Match on the material name, falling back to the order the glTF stores
+	# them in if the importer did not carry the names across.
+	const ORDER := ["Skin", "Hair", "Eyebrows", "Eye"]
+	for i in head.mesh.get_surface_count():
+		var src := head.get_active_material(i)
+		var part := "" if src == null else String(src.resource_name)
+		if part == "" and i < ORDER.size():
+			part = ORDER[i]
+		var mat := (src.duplicate() if src != null else StandardMaterial3D.new()) as BaseMaterial3D
+		if mat == null:
+			continue
+		match part:
+			"Eye", "Eyebrows":
+				# The photo has his. Take the model's out of the way entirely.
+				mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+				mat.albedo_color = Color(0, 0, 0, 0)
+				mat.no_depth_test = false
+			"Skin":
+				mat.albedo_color = skin_tint
+				mat.roughness = 0.72
+			"Hair":
+				mat.albedo_color = hair_tint
+				mat.roughness = 0.9
+		head.set_surface_override_material(i, mat)
 
 
 ## A cap of rounded lumps behind and above the face quad — curly, and it
@@ -307,11 +409,30 @@ func _head_pos() -> Vector3:
 func _update_face() -> void:
 	if _face == null:
 		return
+	_head_turn = _head_delta()
 	var head := _head_pos()
-	_face.position = head + face_offset
-	_face.rotation = Vector3.ZERO
+	# Swung about the head joint rather than spun in place, so the face orbits
+	# with the skull the way it would if it were part of it.
+	_face.position = head + _head_turn * face_offset
+	_face.basis = _head_turn
 	if _hair:
-		_hair.position = head + hair_offset
+		_hair.position = head + _head_turn * hair_offset
+		_hair.basis = _head_turn
+
+
+## How far the head bone has turned from its rest pose, in this node's frame.
+## Identity when there is no head bone or the feature is off, which is exactly
+## the old behaviour — the face then simply rides the body's yaw.
+func _head_delta() -> Basis:
+	if not face_follows_head or _skel == null or _head_bone < 0:
+		return Basis.IDENTITY
+	var posed := _skel.get_bone_global_pose(_head_bone).basis.orthonormalized()
+	var turn := posed * _head_rest.inverse()
+	# The delta is measured in skeleton space; conjugate it into ours so it
+	# means the same rotation once the actor has been scaled and placed.
+	var into := global_transform.basis.orthonormalized().inverse() \
+		* _skel.global_transform.basis.orthonormalized()
+	return (into * turn * into.inverse()).orthonormalized()
 
 
 func _find_skeleton(root: Node) -> Skeleton3D:
